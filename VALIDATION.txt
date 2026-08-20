@@ -13,3 +13,11 @@ GitHub Pages build step: none
 Large-page protection: 30,000,000 rendered-pixel cap per page
 Page processing: sequential to reduce peak memory
 Signature: Developed By A. ElHawary, bold dark red
+
+AUGUST 2026 OCR RUNTIME FIX
+- Removed tesseract.js-core 6.1.2 reference.
+- Tesseract.js 7.0.0 now uses matching tesseract.js-core 7.0.0.
+- Core path points to tesseract-core-lstm.wasm.js explicitly, avoiding Relaxed-SIMD auto-selection.
+- OCR loader retries unpkg then jsDelivr.
+- Arabic and English traineddata remain local under assets/tessdata.
+- JSZip is local under assets/vendor.

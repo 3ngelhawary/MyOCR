@@ -30,3 +30,9 @@ The JavaScript libraries are loaded from jsDelivr. The OCR language data is serv
 6. GitHub will publish the site at `https://YOUR-USERNAME.github.io/REPOSITORY/`.
 
 No build command is required.
+
+## OCR runtime fix - August 2026
+The OCR loader now uses Tesseract.js 7.0.0 with the matching Tesseract.js-core 7.0.0 runtime.
+It explicitly loads the LSTM WebAssembly core to avoid Relaxed-SIMD loader failures seen in some GitHub Pages/browser/network combinations.
+The loader tries unpkg first and jsDelivr second. Arabic and English traineddata remain hosted locally in this repository.
+JSZip is now included locally under assets/vendor/jszip.min.js.

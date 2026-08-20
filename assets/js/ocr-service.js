@@ -1,19 +1,45 @@
 let worker = null;
 
+const OCR_RUNTIMES = [
+  {
+    name: "unpkg",
+    workerPath: "https://unpkg.com/tesseract.js@7.0.0/dist/worker.min.js",
+    corePath: "https://unpkg.com/tesseract.js-core@7.0.0/tesseract-core-lstm.wasm.js"
+  },
+  {
+    name: "jsDelivr",
+    workerPath: "https://cdn.jsdelivr.net/npm/tesseract.js@7.0.0/dist/worker.min.js",
+    corePath: "https://cdn.jsdelivr.net/npm/tesseract.js-core@7.0.0/tesseract-core-lstm.wasm.js"
+  }
+];
+
 export async function createOcrWorker(onProgress) {
   if (!globalThis.Tesseract) throw new Error("Tesseract.js failed to load.");
   const langPath = new URL("../tessdata", import.meta.url).href.replace(/\/$/, "");
-  worker = await Tesseract.createWorker(["ara", "eng"], 1, {
-    langPath,
-    gzip: true,
-    workerPath: "https://cdn.jsdelivr.net/npm/tesseract.js@7.0.0/dist/worker.min.js",
-    corePath: "https://cdn.jsdelivr.net/npm/tesseract.js-core@6.1.2",
-    logger: (m) => onProgress?.(m)
-  });
-  await worker.setParameters({
-    preserve_interword_spaces: "1"
-  });
-  return worker;
+  const errors = [];
+
+  for (const runtime of OCR_RUNTIMES) {
+    try {
+      onProgress?.({ status: `loading OCR runtime from ${runtime.name}`, progress: 0 });
+      const created = await Tesseract.createWorker(["ara", "eng"], 1, {
+        langPath,
+        gzip: true,
+        workerPath: runtime.workerPath,
+        corePath: runtime.corePath,
+        workerBlobURL: true,
+        logger: (m) => onProgress?.(m)
+      });
+      worker = created;
+      await worker.setParameters({ preserve_interword_spaces: "1" });
+      return worker;
+    } catch (error) {
+      errors.push(`${runtime.name}: ${error?.message || error}`);
+      if (worker) await worker.terminate().catch(() => {});
+      worker = null;
+    }
+  }
+
+  throw new Error(`OCR runtime failed to load. ${errors.join(" | ")}`);
 }
 
 export async function recognizePage(canvas, dpi) {
