@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="Browser-based scanned PDF data extractor with Arabic and English OCR.">
+  <title>PDF Data Extractor</title>
+  <link rel="stylesheet" href="assets/css/app.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/tesseract.js@7.0.0/dist/tesseract.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <h1>PDF DATA EXTRACTOR</h1>
+      <p>Scanned PDF + native PDF data extraction</p>
+    </div>
+    <div class="signature">Developed By A. ElHawary</div>
+  </header>
+
+  <main class="shell">
+    <section class="panel upload-panel">
+      <div id="dropZone" class="drop-zone" tabindex="0">
+        <strong>Drop a PDF here</strong>
+        <span>or click to browse</span>
+        <input id="fileInput" type="file" accept="application/pdf,.pdf" hidden>
+      </div>
+      <div class="file-row">
+        <span id="fileName">No PDF selected</span>
+        <span id="fileSize"></span>
+      </div>
+    </section>
+
+    <section class="panel options-panel">
+      <div class="option">
+        <label for="dpiSelect">OCR render quality</label>
+        <select id="dpiSelect">
+          <option value="150">150 DPI - faster</option>
+          <option value="200">200 DPI</option>
+          <option value="300" selected>300 DPI - recommended</option>
+        </select>
+      </div>
+      <div class="option">
+        <label>OCR language</label>
+        <div class="fixed-value">Arabic + English</div>
+      </div>
+      <label class="check-option">
+        <input id="includeImages" type="checkbox">
+        Include rendered page PNGs in ZIP
+      </label>
+      <div class="actions">
+        <button id="scanButton" class="primary" disabled>Scan PDF</button>
+        <button id="stopButton" disabled>Stop</button>
+        <button id="clearButton" disabled>Clear</button>
+      </div>
+    </section>
+
+    <section class="panel progress-panel">
+      <div class="progress-head">
+        <span id="statusText">Ready</span>
+        <span id="progressText">0%</span>
+      </div>
+      <progress id="progressBar" value="0" max="100"></progress>
+      <div id="detailText" class="detail-text">PDF processing happens locally in this browser.</div>
+    </section>
+
+    <section class="stats-grid">
+      <div class="stat"><span>Pages</span><strong id="statPages">0</strong></div>
+      <div class="stat"><span>OCR words</span><strong id="statWords">0</strong></div>
+      <div class="stat"><span>Native chars</span><strong id="statNative">0</strong></div>
+      <div class="stat"><span>OCR confidence</span><strong id="statConfidence">-</strong></div>
+    </section>
+
+    <section class="panel results-panel">
+      <div class="tabs" role="tablist">
+        <button class="tab active" data-tab="text">Text</button>
+        <button class="tab" data-tab="pages">Pages</button>
+        <button class="tab" data-tab="words">OCR Words</button>
+        <button class="tab" data-tab="annotations">Annotations</button>
+        <button class="tab" data-tab="metadata">Metadata</button>
+      </div>
+      <div id="tab-text" class="tab-body active">
+        <textarea id="textOutput" dir="auto" readonly placeholder="Extracted text will appear here..."></textarea>
+      </div>
+      <div id="tab-pages" class="tab-body"><div class="table-wrap"><table id="pagesTable"></table></div></div>
+      <div id="tab-words" class="tab-body"><div class="table-wrap"><table id="wordsTable"></table></div></div>
+      <div id="tab-annotations" class="tab-body"><div class="table-wrap"><table id="annotationsTable"></table></div></div>
+      <div id="tab-metadata" class="tab-body"><pre id="metadataOutput"></pre></div>
+    </section>
+
+    <section class="panel export-panel">
+      <strong>Export results</strong>
+      <div class="actions">
+        <button id="exportTxt" disabled>TXT</button>
+        <button id="exportJson" disabled>JSON</button>
+        <button id="exportCsv" disabled>OCR Words CSV</button>
+        <button id="exportZip" class="primary" disabled>Complete ZIP</button>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <span>Arabic and English text is exported as UTF-8.</span>
+    <span>Your PDF is not uploaded by this application.</span>
+  </footer>
+
+  <script type="module" src="assets/js/app.js"></script>
+</body>
+</html>

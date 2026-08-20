@@ -1,0 +1,15 @@
+Target: Static GitHub Pages web application
+Primary input: scanned/image-based PDF
+OCR: Arabic + English
+Arabic language data: included locally
+English language data: included locally
+Native PDF text extraction: enabled
+OCR every page: enabled
+UTF-8/BOM CSV and TXT exports: enabled
+JSON Unicode output: enabled
+PDF upload to server: not used by application code
+Server/backend/database: none
+GitHub Pages build step: none
+Large-page protection: 30,000,000 rendered-pixel cap per page
+Page processing: sequential to reduce peak memory
+Signature: Developed By A. ElHawary, bold dark red
