@@ -1,22 +1,24 @@
 export const state = {
-  file: null,
-  pdf: null,
+  files: [],
   running: false,
   stopRequested: false,
-  metadata: {},
-  outline: [],
+  documents: [],
   pages: [],
+  declarations: [],
   startedAt: null,
-  completedAt: null
+  completedAt: null,
+  progressBase: 0,
+  progressSpan: 0
 };
 
 export function resetResults() {
-  state.pdf = null;
   state.running = false;
   state.stopRequested = false;
-  state.metadata = {};
-  state.outline = [];
+  state.documents = [];
   state.pages = [];
+  state.declarations = [];
   state.startedAt = null;
   state.completedAt = null;
+  state.progressBase = 0;
+  state.progressSpan = 0;
 }

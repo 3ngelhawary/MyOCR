@@ -21,9 +21,9 @@
   <main class="shell">
     <section class="panel upload-panel">
       <div id="dropZone" class="drop-zone" tabindex="0">
-        <strong>Drop a PDF here</strong>
-        <span>or click to browse</span>
-        <input id="fileInput" type="file" accept="application/pdf,.pdf" hidden>
+        <strong>Drop PDF / PDFs here</strong>
+        <span>or click to browse multiple PDF files</span>
+        <input id="fileInput" type="file" accept="application/pdf,.pdf" multiple hidden>
       </div>
       <div class="file-row">
         <span id="fileName">No PDF selected</span>
@@ -49,7 +49,7 @@
         Include rendered page PNGs in ZIP
       </label>
       <div class="actions">
-        <button id="scanButton" class="primary" disabled>Scan PDF</button>
+        <button id="scanButton" class="primary" disabled>Scan PDF(s)</button>
         <button id="stopButton" disabled>Stop</button>
         <button id="clearButton" disabled>Clear</button>
       </div>
@@ -65,21 +65,23 @@
     </section>
 
     <section class="stats-grid">
+      <div class="stat"><span>PDF Files</span><strong id="statFiles">0</strong></div>
       <div class="stat"><span>Pages</span><strong id="statPages">0</strong></div>
-      <div class="stat"><span>OCR words</span><strong id="statWords">0</strong></div>
-      <div class="stat"><span>Native chars</span><strong id="statNative">0</strong></div>
+      <div class="stat"><span>Declarations</span><strong id="statDeclarations">0</strong></div>
       <div class="stat"><span>OCR confidence</span><strong id="statConfidence">-</strong></div>
     </section>
 
     <section class="panel results-panel">
       <div class="tabs" role="tablist">
-        <button class="tab active" data-tab="text">Text</button>
+        <button class="tab active" data-tab="declarations">Declarations</button>
+        <button class="tab" data-tab="text">Text</button>
         <button class="tab" data-tab="pages">Pages</button>
         <button class="tab" data-tab="words">OCR Words</button>
         <button class="tab" data-tab="annotations">Annotations</button>
         <button class="tab" data-tab="metadata">Metadata</button>
       </div>
-      <div id="tab-text" class="tab-body active">
+      <div id="tab-declarations" class="tab-body active"><div class="table-wrap"><table id="declarationsTable"></table></div></div>
+      <div id="tab-text" class="tab-body">
         <textarea id="textOutput" dir="auto" readonly placeholder="Extracted text will appear here..."></textarea>
       </div>
       <div id="tab-pages" class="tab-body"><div class="table-wrap"><table id="pagesTable"></table></div></div>
@@ -91,6 +93,7 @@
     <section class="panel export-panel">
       <strong>Export results</strong>
       <div class="actions">
+        <button id="exportExcel" class="primary excel-button" disabled>Excel - Sample Format</button>
         <button id="exportTxt" disabled>TXT</button>
         <button id="exportJson" disabled>JSON</button>
         <button id="exportCsv" disabled>OCR Words CSV</button>
@@ -100,7 +103,7 @@
   </main>
 
   <footer>
-    <span>Arabic and English text is exported as UTF-8.</span>
+    <span>Excel output follows the attached declaration sample format.</span>
     <span>Your PDF is not uploaded by this application.</span>
   </footer>
 
