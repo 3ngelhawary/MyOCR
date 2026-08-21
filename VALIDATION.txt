@@ -1,13 +1,18 @@
-PDF Declaration Extractor - Ver. 1.0.0
+PDF Declaration Extractor - Ver. 1.0.1
 Validation summary
-- One declaration record per PDF preserved.
-- Customs / جمرك page priority preserved.
-- Dec. No. now supports prefixes such as SH/5050/2016 and rejects Invoice/Invoices No. candidates.
-- Declaration number ranking strongly favors the upper Customs declaration header.
-- VALUE extraction now prefers the full amount on the VALUE row and rejects stray one-digit OCR tokens when a decimal amount exists.
-- Description captures all lines below Goods / الطرود until the next field.
-- DETAILS AS PER THE INV.'S ATT and equivalent OCR variants are excluded.
-- Declaration date remains selected from the same declaration page and favors a Date / التاريخ label.
-- Version displayed under Developed By A. ElHawary: Ver. 1.0.0.
+- Inspected the user's generated workbook Declaration_Extraction_2026-08-21.xlsx.
+- Confirmed the failure: Dec. No. blank, Value blank, and Description taken from unrelated Arabic legal text.
+- Removed the old first-match/fallback page-selection strategy.
+- Every page is now OCR-scanned and given a Customs declaration-header score; only the highest scoring valid declaration page is used.
+- Generic body occurrences such as "الجمركية" no longer win over a real top-page Customs Declaration / إقرار جمركي header.
+- A declaration record is not accepted unless a valid Dec. No. is found in the upper declaration area.
+- Invoice/Invoices No. candidates in the lower page area remain excluded.
+- VALUE extraction uses the horizontal VALUE row, ignores stray one-digit OCR tokens such as a misread "$" -> "5", and prefers the complete amount.
+- Description is bounded between the Goods/الطرود heading and VALUE row.
+- DETAILS AS PER THE INV.'S ATT is a hard stop; if OCR joins it to the description line, only the text before DETAILS is retained.
+- Sample-layout regression passed: SH/5050/2016 | 22/8/2016 | 9290.86 | OILWELL SUPPLIES ( ELBOW, PIPE, SEAL).
+- Non-Customs/legal-page regression returned no declaration record.
 - JavaScript syntax checks passed.
-- Sample-layout regression test passed: SH/5050/2016, 22/8/2016, 9290.86, OILWELL SUPPLIES ( ELBOW, PIPE, SEAL).
+- All JavaScript files remain below 150 lines.
+- Version displayed under Developed By A. ElHawary: Ver. 1.0.1.
+- End-to-end OCR against the original source PDF was not possible because only the screenshot and generated XLSX were supplied in this turn.
