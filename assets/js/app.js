@@ -1,7 +1,8 @@
 import { state, resetResults } from "./state.js";
 import { loadPdf, extractPageData, renderPage, canvasToPngBlob } from "./pdf-service.js?v=20260820-1";
-import { createOcrWorker, recognizePage, recognizeRegion, terminateOcrWorker } from "./ocr-service.js?v=1.0.3";
-import { extractDeclaration, getCustomsPageScore } from "./declaration-extractor.js?v=1.0.3";
+import { createOcrWorker, recognizePage, recognizeRegion, recognizeRegionEnhanced, terminateOcrWorker } from "./ocr-service.js?v=1.0.4";
+import { extractDeclaration, getCustomsPageScore } from "./declaration-extractor.js?v=1.0.4";
+import { getFieldRegions } from "./field-regions.js?v=1.0.4";
 import { exportDeclarationExcel } from "./excel-export.js";
 import { $, initTabs, renderResults, setBusy, setProgress } from "./ui.js";
 import { exportTxt, exportJson, exportWordsCsv, exportZip } from "./export-service.js";
@@ -23,8 +24,7 @@ function wireActions() {
   $("stopButton").addEventListener("click", () => { state.stopRequested = true; $("detailText").textContent = "Stopping after the current page..."; });
   $("clearButton").addEventListener("click", clearAll);
   $("exportExcel").addEventListener("click", async () => { try { await exportDeclarationExcel(state); } catch (e) { showError(e); } });
-  $("exportTxt").addEventListener("click", () => exportTxt(state));
-  $("exportJson").addEventListener("click", () => exportJson(state));
+  $("exportTxt").addEventListener("click", () => exportTxt(state)); $("exportJson").addEventListener("click", () => exportJson(state));
   $("exportCsv").addEventListener("click", () => exportWordsCsv(state));
   $("exportZip").addEventListener("click", async () => { try { await exportZip(state); } catch (e) { showError(e); } });
 }
@@ -45,7 +45,7 @@ async function scan() {
   const dpi = Number($("dpiSelect").value), includeImages = $("includeImages").checked;
   try {
     await waitForLibraries(); await createOcrWorker(m => handleOcrProgress(m));
-    for (let f = 0; f < state.files.length && !state.stopRequested; f++) await scanFile(state.files[f], f, dpi, includeImages);
+    for (let f=0; f<state.files.length && !state.stopRequested; f++) await scanFile(state.files[f], f, dpi, includeImages);
     state.completedAt = new Date().toISOString();
     setProgress(state.stopRequested ? $("progressBar").value : 100, state.stopRequested ? "Stopped" : "Completed",
       `Produced ${state.declarations.length} declaration record(s) from ${state.pages.length} processed page(s).`);
@@ -54,23 +54,22 @@ async function scan() {
 }
 
 async function scanFile(file, fileIndex, dpi, includeImages) {
-  setProgress((fileIndex / state.files.length) * 100, `Opening ${file.name}`, "Finding the strongest Customs declaration page...");
+  setProgress((fileIndex/state.files.length)*100, `Opening ${file.name}`, "Finding the strongest Customs declaration page...");
   const loaded = await loadPdf(file); let best = null;
   try {
     state.documents.push({ fileName:file.name, pageCount:loaded.pdf.numPages, metadata:loaded.metadata, outline:loaded.outline });
-    for (let pageNo = 1; pageNo <= loaded.pdf.numPages && !state.stopRequested; pageNo++) {
-      const unit = 100 / state.files.length, base = fileIndex * unit + ((pageNo - 1) / loaded.pdf.numPages) * unit;
-      state.progressBase = base; state.progressSpan = unit / loaded.pdf.numPages;
+    for (let pageNo=1; pageNo<=loaded.pdf.numPages && !state.stopRequested; pageNo++) {
+      const unit=100/state.files.length, base=fileIndex*unit+((pageNo-1)/loaded.pdf.numPages)*unit;
+      state.progressBase=base; state.progressSpan=unit/loaded.pdf.numPages;
       setProgress(base, `${file.name} - page ${pageNo}/${loaded.pdf.numPages}`, "OCR scanning page structure...");
-      const data = await extractPageData(loaded.pdf, pageNo), rendered = await renderPage(data.page, dpi);
-      if (includeImages) data.pageImageBlob = await canvasToPngBlob(rendered.canvas);
-      const ocr = await recognizePage(rendered.canvas, rendered.effectiveDpi), page = buildPage(file.name,pageNo,data,rendered,ocr);
-      state.pages.push(page); const score = getCustomsPageScore(page);
-      if (!best || score > best.score) best = { page, score };
-      rendered.canvas.width = 1; rendered.canvas.height = 1; renderResults(state);
+      const data=await extractPageData(loaded.pdf,pageNo), rendered=await renderPage(data.page,dpi);
+      if (includeImages) data.pageImageBlob=await canvasToPngBlob(rendered.canvas);
+      const ocr=await recognizePage(rendered.canvas,rendered.effectiveDpi), page=buildPage(file.name,pageNo,data,rendered,ocr);
+      state.pages.push(page); const score=getCustomsPageScore(page); if (!best || score>best.score) best={page,score};
+      rendered.canvas.width=1; rendered.canvas.height=1; renderResults(state);
     }
     if (best && !state.stopRequested) await refineAndStore(best.page, loaded.pdf, file.name, dpi);
-    else if (best) state.declarations.push(extractDeclaration(best.page, file.name));
+    else if (best) state.declarations.push(extractDeclaration(best.page,file.name));
     renderResults(state);
   } finally {
     if (typeof loaded.loadingTask?.destroy === "function") await loaded.loadingTask.destroy().catch(() => {});
@@ -79,24 +78,33 @@ async function scanFile(file, fileIndex, dpi, includeImages) {
 }
 
 async function refineAndStore(page, pdf, fileName, dpi) {
-  setProgress($("progressBar").value, `${fileName} - focused reading`, "Re-reading the declaration header for Dec. No. and Date...");
-  const pdfPage = await pdf.getPage(page.pageNumber), rendered = await renderPage(pdfPage, Math.max(dpi, 300));
-  const header = await recognizeRegion(rendered.canvas, rendered.effectiveDpi,
-    { left:0, top:0, width:rendered.canvas.width, height:rendered.canvas.height * 0.34 }, "11");
-  page.headerOcrText = header.text; page.headerOcrWords = header.words;
-  state.declarations.push(extractDeclaration(page, fileName)); rendered.canvas.width = 1; rendered.canvas.height = 1;
+  setProgress($("progressBar").value, `${fileName} - validation pass`, "Running independent field OCR and cross-validation...");
+  const pdfPage=await pdf.getPage(page.pageNumber), rendered=await renderPage(pdfPage,Math.max(dpi,400));
+  try {
+    const header=await recognizeRegion(rendered.canvas,rendered.effectiveDpi,
+      {left:0,top:0,width:rendered.canvas.width,height:rendered.canvas.height*0.34},"11");
+    page.headerOcrText=header.text; page.headerOcrWords=header.words;
+    const regions=getFieldRegions(page), descRegion=scaleRegion(regions.description,page,rendered.canvas), valueRegion=scaleRegion(regions.value,page,rendered.canvas);
+    const desc=await recognizeRegionEnhanced(rendered.canvas,rendered.effectiveDpi,descRegion,{pageSegMode:"6",scale:1.5,threshold:null,contrast:1.35});
+    let value=await recognizeRegionEnhanced(rendered.canvas,rendered.effectiveDpi,valueRegion,
+      {pageSegMode:"6",scale:1.8,threshold:null,contrast:1.45});
+    if (!/\d{2,}/.test(value.text)) value=await recognizeRegionEnhanced(rendered.canvas,rendered.effectiveDpi,valueRegion,
+      {pageSegMode:"6",scale:2.1,threshold:null,contrast:1.8,whitelist:"0123456789.,$ "});
+    page.descriptionOcrText=desc.text; page.valueOcrText=value.text;
+    state.declarations.push(extractDeclaration(page,fileName));
+  } finally { rendered.canvas.width=1; rendered.canvas.height=1; }
 }
 
-function buildPage(fileName,pageNo,data,rendered,ocr) {
-  return { sourceFile:fileName,pageNumber:pageNo,widthPt:data.widthPt,heightPt:data.heightPt,rotation:data.rotation,
-    renderWidth:rendered.canvas.width,renderHeight:rendered.canvas.height,effectiveDpi:rendered.effectiveDpi,
-    nativeText:data.nativeText,nativeItems:data.nativeItems,annotations:data.annotations,operationCount:data.operationCount,
-    ocrText:ocr.text,ocrWords:ocr.words,ocrLines:ocr.lines,ocrConfidence:ocr.confidence,pageImageBlob:data.pageImageBlob||null };
+function scaleRegion(region,page,canvas) {
+  const sx=canvas.width/(page.renderWidth||canvas.width), sy=canvas.height/(page.renderHeight||canvas.height);
+  return { left:region.left*sx, top:region.top*sy, width:region.width*sx, height:region.height*sy };
 }
-
-function handleOcrProgress(m) { if (!m?.progress) return; const pct=state.progressBase+state.progressSpan*Math.min(0.98,m.progress); $("progressBar").value=pct; $("progressText").textContent=`${Math.round(pct)}%`; $("detailText").textContent=`${m.status||"OCR"} - ${Math.round(m.progress*100)}% of current page`; }
-function clearAll() { state.files=[]; resetResults(); $("fileInput").value=""; $("fileName").textContent="No PDF selected"; $("fileSize").textContent=""; clearOutputs(); setProgress(0,"Ready","PDF processing happens locally in this browser."); setBusy(false,false,false); }
-function clearOutputs() { $("textOutput").value=""; $("metadataOutput").textContent=""; for (const id of ["declarationsTable","pagesTable","wordsTable","annotationsTable"]) $(id).innerHTML=""; $("statFiles").textContent="0"; $("statPages").textContent="0"; $("statDeclarations").textContent="0"; $("statConfidence").textContent="-"; }
-async function waitForLibraries() { const start=Date.now(); while (!globalThis.Tesseract&&Date.now()-start<12000) await new Promise(r=>setTimeout(r,100)); if (!globalThis.Tesseract) throw new Error("Tesseract.js could not be loaded. Check the internet connection."); }
-function showError(error) { console.error(error); setProgress($("progressBar").value,"Error",error?.message||String(error)); }
-function formatBytes(n) { if (!n) return "0 B"; const u=["B","KB","MB","GB"],i=Math.min(u.length-1,Math.floor(Math.log(n)/Math.log(1024))); return `${(n/1024**i).toFixed(i?1:0)} ${u[i]}`; }
+function buildPage(fileName,pageNo,data,rendered,ocr) { return { sourceFile:fileName,pageNumber:pageNo,widthPt:data.widthPt,heightPt:data.heightPt,rotation:data.rotation,
+  renderWidth:rendered.canvas.width,renderHeight:rendered.canvas.height,effectiveDpi:rendered.effectiveDpi,nativeText:data.nativeText,nativeItems:data.nativeItems,
+  annotations:data.annotations,operationCount:data.operationCount,ocrText:ocr.text,ocrWords:ocr.words,ocrLines:ocr.lines,ocrConfidence:ocr.confidence,pageImageBlob:data.pageImageBlob||null }; }
+function handleOcrProgress(m){if(!m?.progress)return;const pct=state.progressBase+state.progressSpan*Math.min(0.98,m.progress);$("progressBar").value=pct;$("progressText").textContent=`${Math.round(pct)}%`;$("detailText").textContent=`${m.status||"OCR"} - ${Math.round(m.progress*100)}% of current page`;}
+function clearAll(){state.files=[];resetResults();$("fileInput").value="";$("fileName").textContent="No PDF selected";$("fileSize").textContent="";clearOutputs();setProgress(0,"Ready","PDF processing happens locally in this browser.");setBusy(false,false,false);}
+function clearOutputs(){$("textOutput").value="";$("metadataOutput").textContent="";for(const id of["declarationsTable","pagesTable","wordsTable","annotationsTable"])$(id).innerHTML="";$("statFiles").textContent="0";$("statPages").textContent="0";$("statDeclarations").textContent="0";$("statConfidence").textContent="-";}
+async function waitForLibraries(){const start=Date.now();while(!globalThis.Tesseract&&Date.now()-start<12000)await new Promise(r=>setTimeout(r,100));if(!globalThis.Tesseract)throw new Error("Tesseract.js could not be loaded. Check the internet connection.");}
+function showError(error){console.error(error);setProgress($("progressBar").value,"Error",error?.message||String(error));}
+function formatBytes(n){if(!n)return"0 B";const u=["B","KB","MB","GB"],i=Math.min(u.length-1,Math.floor(Math.log(n)/Math.log(1024)));return`${(n/1024**i).toFixed(i?1:0)} ${u[i]}`;}

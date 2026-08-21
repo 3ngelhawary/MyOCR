@@ -1,24 +1,29 @@
-Version: 1.0.3
-PDF Declaration Extractor - Ver. 1.0.3
+Version: 1.0.4
+PDF Declaration Extractor - Ver. 1.0.4
 Validation summary
-- Changed strategy after Ver. 1.0.2 could return no detected declaration.
-- One declaration record is now produced for each fully processed PDF.
-- The first OCR pass is used for page scoring, not as a hard gate.
-- Page scoring uses declaration form structure even when OCR corrupts the word Customs.
-- The selected page header is re-OCRed separately using sparse-text page segmentation.
-- Dec. No., Date, Description and Value are extracted independently; one missing field does not discard the other fields.
-- Invoice/Invoices No. candidates remain excluded from Dec. No.
-- VALUE same-row extraction is preferred before nearby-line fallback.
-- Split OCR amount `9290. 86` is normalized to `9290.86`.
-- Description cleanup from Ver. 1.0.2 is preserved.
-- Regression using the supplied customs screenshot OCR passed:
-  Dec. No.: SH/5050/2016
-  Date: 22/8/2016
-  Value: 9290.86
-  Description: OILWELL SUPPLIES ( ELBOW, PIPE, SEAL )
-- Regression for `0 0 6 مع : OILWELL SUPPLIES ( GASKET, RING (` returned:
-  OILWELL SUPPLIES ( GASKET, RING )
-- JavaScript syntax checks passed.
-- All JavaScript source files are below 150 lines.
+- Built on the Ver. 1.0.3 detection baseline.
+- Added a second independent high-resolution field OCR and validation layer.
+- Selected Customs page is re-rendered at minimum 400 DPI.
+- Description and VALUE are processed through separate image crops.
+- Secondary crops use independent grayscale/contrast preprocessing before OCR.
+- VALUE secondary OCR uses a narrow VALUE-row crop, then a stronger numeric/currency fallback pass if needed.
+- Primary and secondary Description/Value candidates are scored before final selection.
+- Goods heading is explicitly removed from Description.
+- `Number, Kind of Package & Description of Goods OILWELL SUPPLIES ( GASKET, RING )` -> `OILWELL SUPPLIES ( GASKET, RING )`.
+- `6 EA : OILWELL SUPPLIES ( GASKET, RING )` -> `OILWELL SUPPLIES ( GASKET, RING )`.
+- Split amount `$ 9290. 86` -> `9290.86`.
+- Secondary VALUE is accepted when the primary VALUE result is blank.
+- Invoice/Invoices No. rejection is preserved.
+- One declaration per PDF is preserved.
 - Excel template was not modified.
-- Version displayed under Developed By A. ElHawary: Ver. 1.0.3.
+- Version displayed under Developed By A. ElHawary: Ver. 1.0.4.
+- Exact supplied Customs screenshot was used for targeted-crop regression:
+  secondary Description OCR -> `OILWELL SUPPLIES ( ELBOW, PIPE, SEAL ) DETAILS AS PER THE INV.'S ATT`
+  validated Description -> `OILWELL SUPPLIES ( ELBOW, PIPE, SEAL )`
+  secondary VALUE OCR -> `VALUE $ 9290. 86`
+  validated VALUE -> `9290.86`
+- Exact supplied `6 EA : OILWELL SUPPLIES ( GASKET, RING )` image was OCR-tested and validated to `OILWELL SUPPLIES ( GASKET, RING )`.
+- JavaScript syntax checks passed for all source files.
+- All JavaScript source files are below 150 lines.
+- Arabic and English OCR model gzip integrity checks passed.
+- ZIP integrity must pass before submission.

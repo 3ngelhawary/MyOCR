@@ -56,6 +56,7 @@ export function isDescriptionStop(t) {
 
 export function cleanDescription(t) {
   let x = normalizeText(t).replace(/\s{2,}/g, " ").trim();
+  x = stripGoodsHeading(x);
   x = stripQuantityPrefix(x);
   x = x.replace(/\s*,\s*/g, ", ").replace(/\(\s*/g, "( ").replace(/\s*\)/g, " )");
   x = repairClosingParenthesis(x);
@@ -68,6 +69,14 @@ export function cleanDecNo(t) {
 
 export function cleanDate(t) {
   return normalizeDigits(t).replace(/\s+/g, "").replace(/[.\-]/g, "/");
+}
+
+function stripGoodsHeading(t) {
+  return t
+    .replace(/number\s*,?\s*kind\s+of\s+package\s*&?\s*description\s+of\s+goods\s*[:\-]?/ig, " ")
+    .replace(/(?:kind\s+of\s+package\s*&?\s*)?description\s+of\s+goods\s*[:\-]?/ig, " ")
+    .replace(/number\s*,?\s*kind\s+of\s+package\s*&?\s*description\s*[:\-]?/ig, " ")
+    .replace(/\s{2,}/g, " ").trim();
 }
 
 function stripQuantityPrefix(t) {
