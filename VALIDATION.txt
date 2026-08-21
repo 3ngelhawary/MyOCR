@@ -1,4 +1,5 @@
-PDF Declaration Extractor - Ver. 1.0.1
+Version: 1.0.2
+PDF Declaration Extractor - Ver. 1.0.2
 Validation summary
 - Inspected the user's generated workbook Declaration_Extraction_2026-08-21.xlsx.
 - Confirmed the failure: Dec. No. blank, Value blank, and Description taken from unrelated Arabic legal text.
@@ -14,5 +15,11 @@ Validation summary
 - Non-Customs/legal-page regression returned no declaration record.
 - JavaScript syntax checks passed.
 - All JavaScript files remain below 150 lines.
-- Version displayed under Developed By A. ElHawary: Ver. 1.0.1.
+- Version displayed under Developed By A. ElHawary: Ver. 1.0.2.
 - End-to-end OCR against the original source PDF was not possible because only the screenshot and generated XLSX were supplied in this turn.
+
+Ver. 1.0.2 regression:
+Input OCR: 0 0 6 مع : OILWELL SUPPLIES ( GASKET, RING (
+Expected Description: OILWELL SUPPLIES ( GASKET, RING )
+Quantity/unit prefix removed: PASS
+Closing parenthesis repair: PASS

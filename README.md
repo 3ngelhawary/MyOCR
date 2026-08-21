@@ -1,6 +1,6 @@
 # PDF Declaration Extractor - GitHub Pages
 
-**Version:** 1.0.1  
+**Version:** 1.0.2  
 **Developed By A. ElHawary**
 
 Static browser application for extracting one customs declaration from each scanned PDF and exporting the result to the supplied Excel format.
@@ -21,3 +21,10 @@ Static browser application for extracting one customs declaration from each scan
 
 ## Deployment
 Upload the contents of this folder to the GitHub Pages repository root. After replacing an older release, hard-refresh the browser (`Ctrl+F5`).
+
+
+## Ver. 1.0.2
+- Description quantity/unit prefixes such as `6 EA :` are removed.
+- OCR garbage versions of the same prefix, such as `0 0 6 مع :`, are removed.
+- A trailing OCR-misread `(` is repaired to `)` when it is clearly the unmatched closing bracket of the description.
+- `DETAILS AS PER THE INV.'S ATT` and close OCR variants remain excluded from Description.

@@ -123,9 +123,25 @@ function isInvoiceLine(t) { return /\binvoices?\b|\binv\.?\s*['’]?s?\s*(?:no|n
 function nearbyInvoiceLabel(lines,i) { return [i-1,i,i+1].some(n => n>=0 && n<lines.length && isInvoiceLine(lines[n].text)); }
 function hasGoodsLabel(t) { const x=arabicClean(t); return /\b(?:description\s+of\s+)?goods?\b/i.test(x) || /الطرود|طرود/.test(x); }
 function hasValueLabel(t) { return /\bvalue\b/i.test(t) || /القيمه|القيمة/.test(arabicClean(t)); }
-function textBeforeDetails(t) { const x=String(t||""); const i=x.search(/details?\s+as\s+per|inv\.?\s*['’]?s?\s*att/i); return i>=0?x.slice(0,i).trim():x; }
+function textBeforeDetails(t) { const x=String(t||""); const i=x.search(/d[e3]ta[i1l]l?s?\s+as\s+per|inv(?:oice)?\.?\s*['’]?s?\s*(?:att|attachment)/i); return i>=0?x.slice(0,i).trim():x; }
 function isDescriptionStop(t) { return /\b(weight|invoice|currency|origin|supplier|p\.?\s*order|gross\s*wt)\b/i.test(t) || /الوزن|الفاتوره|الفاتورة|المورد/.test(arabicClean(t)); }
-function cleanDescription(t) { return String(t||"").replace(/\s+\)/g,")").replace(/\(\s*/g,"( ").replace(/\s*,\s*/g,", ").replace(/\s{2,}/g," ").trim(); }
+function cleanDescription(t) {
+  let x=normalizeText(t).replace(/\s{2,}/g," ").trim();
+  x=stripQuantityPrefix(x);
+  x=x.replace(/\s*,\s*/g,", ").replace(/\(\s*/g,"( ").replace(/\s*\)/g," )");
+  x=repairClosingParenthesis(x);
+  return x.replace(/\s{2,}/g," ").trim();
+}
+
+function stripQuantityPrefix(t) {
+  const colon=t.search(/[:：؛]/);
+  if (colon<0 || colon>32) return t;
+  const head=t.slice(0,colon).trim(), tail=t.slice(colon+1).trim();
+  const unit=/(?:EA|EACH|PCS?|NOS?|UNITS?|PKGS?|CTNS?|BOX(?:ES)?|SETS?|LOTS?|KGS?|KG|[\u0600-\u06ff]{1,3})/i;
+  const qty=new RegExp(`^(?:\\d+\\s+){0,3}\\d+(?:[.,]\\d+)?\\s*${unit.source}$`,"i");
+  return qty.test(normalizeDigits(head)) && /[A-Za-z\u0600-\u06ff]/.test(tail) ? tail : t;
+}
+function repairClosingParenthesis(t) { const opens=(t.match(/\(/g)||[]).length, closes=(t.match(/\)/g)||[]).length; return opens>closes && /\(\s*$/.test(t) ? t.replace(/\(\s*$/," )") : t; }
 function normalizeText(t) { return normalizeDigits(t).replace(/[\u200e\u200f\u202a-\u202e]/g," "); }
 function arabicClean(t) { return String(t).replace(/[إأآ]/g,"ا").replace(/[ًٌٍَُِّْ]/g,""); }
 function cleanDecNo(t) { return normalizeDigits(t).replace(/\s+/g,"").replace(/\/{2,}/g,"/"); }
