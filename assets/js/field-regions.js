@@ -1,4 +1,4 @@
-import { arabicClean } from "./declaration-text.js?v=1.0.4";
+import { arabicClean } from "./declaration-text.js?v=1.0.5";
 
 export function getFieldRegions(page) {
   const words = page.ocrWords || [];

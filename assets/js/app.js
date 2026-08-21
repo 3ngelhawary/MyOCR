@@ -1,8 +1,8 @@
 import { state, resetResults } from "./state.js";
 import { loadPdf, extractPageData, renderPage, canvasToPngBlob } from "./pdf-service.js?v=20260820-1";
-import { createOcrWorker, recognizePage, recognizeRegion, recognizeRegionEnhanced, terminateOcrWorker } from "./ocr-service.js?v=1.0.4";
-import { extractDeclaration, getCustomsPageScore } from "./declaration-extractor.js?v=1.0.4";
-import { getFieldRegions } from "./field-regions.js?v=1.0.4";
+import { createOcrWorker, recognizePage, recognizeRegion, recognizeRegionEnhanced, terminateOcrWorker } from "./ocr-service.js?v=1.0.5";
+import { extractDeclaration, getCustomsPageScore } from "./declaration-extractor.js?v=1.0.5";
+import { getFieldRegions } from "./field-regions.js?v=1.0.5";
 import { exportDeclarationExcel } from "./excel-export.js";
 import { $, initTabs, renderResults, setBusy, setProgress } from "./ui.js";
 import { exportTxt, exportJson, exportWordsCsv, exportZip } from "./export-service.js";

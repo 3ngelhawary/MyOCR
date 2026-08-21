@@ -82,10 +82,14 @@ function stripGoodsHeading(t) {
 function stripQuantityPrefix(t) {
   const colon = t.search(/[:：؛]/);
   if (colon < 0 || colon > 32) return t;
-  const head = t.slice(0, colon).trim(), tail = t.slice(colon + 1).trim();
+  const head = normalizeDigits(t.slice(0, colon)).replace(/\s+/g, " ").trim();
+  const tail = t.slice(colon + 1).trim();
+  if (!/[A-Za-z\u0600-\u06ff]/.test(tail)) return t;
   const unit = /(?:EA|EACH|PCS?|NOS?|UNITS?|PKGS?|CTNS?|BOX(?:ES)?|SETS?|LOTS?|KGS?|KG|[\u0600-\u06ff]{1,3})/i;
-  const qty = new RegExp(`^(?:\\d+\\s+){0,3}\\d+(?:[.,]\\d+)?\\s*${unit.source}$`, "i");
-  return qty.test(normalizeDigits(head)) && /[A-Za-z\u0600-\u06ff]/.test(tail) ? tail : t;
+  const known = new RegExp(`^(?:\\d+\\s+){0,3}\\d+(?:[.,]\\d+)?\\s*${unit.source}$`, "i");
+  const ocrUnit = /^(?:\d+\s+){1,3}[A-Za-z0-9\u0600-\u06ff]{1,4}$/i;
+  const compactOcrUnit = /^\d+(?:[.,]\d+)?\s+[A-Za-z0-9\u0600-\u06ff]{1,4}$/i;
+  return known.test(head) || ocrUnit.test(head) || compactOcrUnit.test(head) ? tail : t;
 }
 
 function repairClosingParenthesis(t) {

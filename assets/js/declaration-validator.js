@@ -1,4 +1,4 @@
-import { cleanDescription, normalizeDigits, normalizeText, textBeforeDetails } from "./declaration-text.js?v=1.0.4";
+import { cleanDescription, normalizeDigits, normalizeText, textBeforeDetails } from "./declaration-text.js?v=1.0.5";
 
 const MONEY_RE = /\d[\d,]*(?:[.,]\d{2,3})?/g;
 

@@ -1,7 +1,7 @@
 import { normalizeDigits, normalizeText, arabicClean, hasCustomsLabel, hasDecLabel, hasDateLabel,
   isInvoiceLine, hasGoodsLabel, hasValueLabel, hasFormSignature, textBeforeDetails,
-  isDescriptionStop, cleanDescription, cleanDecNo, cleanDate } from "./declaration-text.js?v=1.0.4";
-import { validateDescription, validateValue, extractFocusedDescription, extractFocusedValue } from "./declaration-validator.js?v=1.0.4";
+  isDescriptionStop, cleanDescription, cleanDecNo, cleanDate } from "./declaration-text.js?v=1.0.5";
+import { validateDescription, validateValue, extractFocusedDescription, extractFocusedValue } from "./declaration-validator.js?v=1.0.5";
 
 const DEC_RE = /(?:[A-Za-z\u0600-\u06ff][A-Za-z\u0600-\u06ff0-9._-]{0,15}\s*\/\s*)?\d{3,5}\s*\/\s*(?:19|20)\d{2}/g;
 const DATE_RE = /\b(?:0?[1-9]|[12]\d|3[01])\s*[\/.\-]\s*(?:0?[1-9]|1[0-2])\s*[\/.\-]\s*(?:19|20)\d{2}\b/g;

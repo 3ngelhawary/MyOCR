@@ -1,7 +1,7 @@
-Version: 1.0.4
-PDF Declaration Extractor - Ver. 1.0.4
+Version: 1.0.5
+PDF Declaration Extractor - Ver. 1.0.5
 Validation summary
-- Built on the Ver. 1.0.3 detection baseline.
+- Built on the working Ver. 1.0.4 dual-validation baseline.
 - Added a second independent high-resolution field OCR and validation layer.
 - Selected Customs page is re-rendered at minimum 400 DPI.
 - Description and VALUE are processed through separate image crops.
@@ -16,7 +16,7 @@ Validation summary
 - Invoice/Invoices No. rejection is preserved.
 - One declaration per PDF is preserved.
 - Excel template was not modified.
-- Version displayed under Developed By A. ElHawary: Ver. 1.0.4.
+- Version displayed under Developed By A. ElHawary: Ver. 1.0.5.
 - Exact supplied Customs screenshot was used for targeted-crop regression:
   secondary Description OCR -> `OILWELL SUPPLIES ( ELBOW, PIPE, SEAL ) DETAILS AS PER THE INV.'S ATT`
   validated Description -> `OILWELL SUPPLIES ( ELBOW, PIPE, SEAL )`
@@ -27,3 +27,6 @@ Validation summary
 - All JavaScript source files are below 150 lines.
 - Arabic and English OCR model gzip integrity checks passed.
 - ZIP integrity must pass before submission.
+
+- Ver. 1.0.5 Description cleanup: OCR quantity/unit prefixes such as `5 68 :`, `5 E8 :`, and `5 EA :` are removed before export.
+- Regression: `5 68 : OILWELL SUPPLIES ( GASKET, RING )` -> `OILWELL SUPPLIES ( GASKET, RING )`.
