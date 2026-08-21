@@ -58,6 +58,7 @@ export function cleanDescription(t) {
   let x = normalizeText(t).replace(/\s{2,}/g, " ").trim();
   x = stripGoodsHeading(x);
   x = stripQuantityPrefix(x);
+  x = stripLeadingHeadingGarbage(x);
   x = x.replace(/\s*,\s*/g, ", ").replace(/\(\s*/g, "( ").replace(/\s*\)/g, " )");
   x = repairClosingParenthesis(x);
   return x.replace(/\s{2,}/g, " ").trim();
@@ -90,6 +91,19 @@ function stripQuantityPrefix(t) {
   const ocrUnit = /^(?:\d+\s+){1,3}[A-Za-z0-9\u0600-\u06ff]{1,4}$/i;
   const compactOcrUnit = /^\d+(?:[.,]\d+)?\s+[A-Za-z0-9\u0600-\u06ff]{1,4}$/i;
   return known.test(head) || ocrUnit.test(head) || compactOcrUnit.test(head) ? tail : t;
+}
+
+function stripLeadingHeadingGarbage(t) {
+  const matches = [...t.matchAll(/\b[A-Z][A-Z0-9&./'-]{2,}(?:\s+[A-Z][A-Z0-9&./'-]{2,})+/g)];
+  for (const match of matches) {
+    const phrase = match[0], prefix = t.slice(0, match.index);
+    if (/^(?:NUMBER|KIND|PACKAGE|DESCRIPTION|GOODS|DETAILS|VALUE)\b/i.test(phrase)) continue;
+    const noisy = /[\u0600-\u06ff]/.test(prefix) ||
+      /\b(?:number|kind|package|description|goods|message|parcel)\b/i.test(prefix) ||
+      /^(?:[^A-Za-z]*[A-Za-z]{1,2}\s+){1,3}[^A-Za-z]*$/i.test(prefix.trim());
+    if (noisy) return t.slice(match.index).trim();
+  }
+  return t;
 }
 
 function repairClosingParenthesis(t) {

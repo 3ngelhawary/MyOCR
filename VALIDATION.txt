@@ -1,32 +1,23 @@
-Version: 1.0.5
-PDF Declaration Extractor - Ver. 1.0.5
+Version: 1.0.6
+PDF Declaration Extractor - Ver. 1.0.6
 Validation summary
-- Built on the working Ver. 1.0.4 dual-validation baseline.
-- Added a second independent high-resolution field OCR and validation layer.
-- Selected Customs page is re-rendered at minimum 400 DPI.
-- Description and VALUE are processed through separate image crops.
-- Secondary crops use independent grayscale/contrast preprocessing before OCR.
-- VALUE secondary OCR uses a narrow VALUE-row crop, then a stronger numeric/currency fallback pass if needed.
-- Primary and secondary Description/Value candidates are scored before final selection.
-- Goods heading is explicitly removed from Description.
-- `Number, Kind of Package & Description of Goods OILWELL SUPPLIES ( GASKET, RING )` -> `OILWELL SUPPLIES ( GASKET, RING )`.
-- `6 EA : OILWELL SUPPLIES ( GASKET, RING )` -> `OILWELL SUPPLIES ( GASKET, RING )`.
-- Split amount `$ 9290. 86` -> `9290.86`.
-- Secondary VALUE is accepted when the primary VALUE result is blank.
-- Invoice/Invoices No. rejection is preserved.
-- One declaration per PDF is preserved.
-- Excel template was not modified.
-- Version displayed under Developed By A. ElHawary: Ver. 1.0.5.
-- Exact supplied Customs screenshot was used for targeted-crop regression:
-  secondary Description OCR -> `OILWELL SUPPLIES ( ELBOW, PIPE, SEAL ) DETAILS AS PER THE INV.'S ATT`
-  validated Description -> `OILWELL SUPPLIES ( ELBOW, PIPE, SEAL )`
-  secondary VALUE OCR -> `VALUE $ 9290. 86`
-  validated VALUE -> `9290.86`
-- Exact supplied `6 EA : OILWELL SUPPLIES ( GASKET, RING )` image was OCR-tested and validated to `OILWELL SUPPLIES ( GASKET, RING )`.
-- JavaScript syntax checks passed for all source files.
+- Built directly on Ver. 1.0.5.
+- Exactly one declaration per PDF preserved.
+- Customs-page selection, Dec. No., Date, Excel export, and invoice-number rejection preserved.
+- Description cleanup regression:
+  input  = E الخلرود ase y الرسالة توصيف 0 OILWELL SUPPLIES ( GASKET, RING )
+  output = OILWELL SUPPLIES ( GASKET, RING )
+- Existing quantity/unit cleanup preserved for 5 EA :, 5 68 :, 5 E8 :, and similar prefixes.
+- Added a third VALUE validation layer dedicated to decimal-separator recovery.
+- Decimal layer re-OCRs only the narrow VALUE row at higher magnification.
+- Decimal layer uses PSM 7 and PSM 13 plus alternate image thresholds.
+- Decimal OCR whitelist contains only digits, dot, comma, dollar sign, and spaces.
+- Explicit values such as 217.02 are preferred over digit-only candidates.
+- Currency fallback regression: 21702 -> 217.02 when all OCR passes miss the separator.
+- Split amount handling such as 9290. 86 -> 9290.86 remains supported.
+- Version displayed under Developed By A. ElHawary: Ver. 1.0.6.
 - All JavaScript source files are below 150 lines.
-- Arabic and English OCR model gzip integrity checks passed.
+- JavaScript syntax checks must pass before submission.
+- Arabic and English OCR model gzip integrity checks must pass before submission.
+- Excel template remains unchanged.
 - ZIP integrity must pass before submission.
-
-- Ver. 1.0.5 Description cleanup: OCR quantity/unit prefixes such as `5 68 :`, `5 E8 :`, and `5 EA :` are removed before export.
-- Regression: `5 68 : OILWELL SUPPLIES ( GASKET, RING )` -> `OILWELL SUPPLIES ( GASKET, RING )`.

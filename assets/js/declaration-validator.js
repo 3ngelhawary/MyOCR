@@ -1,4 +1,4 @@
-import { cleanDescription, normalizeDigits, normalizeText, textBeforeDetails } from "./declaration-text.js?v=1.0.5";
+import { cleanDescription, normalizeDigits, normalizeText, textBeforeDetails } from "./declaration-text.js?v=1.0.6";
 
 const MONEY_RE = /\d[\d,]*(?:[.,]\d{2,3})?/g;
 
@@ -9,17 +9,18 @@ export function validateDescription(primary, secondary) {
   return descriptionScore(b) >= descriptionScore(a) ? b : a;
 }
 
-export function validateValue(primary, secondary) {
-  const a = normalizeMoney(primary), b = normalizeMoney(secondary);
-  if (!b) return a;
-  if (!a) return b;
-  const sa = moneyScore(a), sb = moneyScore(b);
-  return sb >= sa ? b : a;
+export function validateValue(primary, secondary, decimalEvidence = "") {
+  const candidates = [primary, secondary, ...extractMoneyCandidates(decimalEvidence)]
+    .map(normalizeMoney).filter(Boolean);
+  if (!candidates.length) return "";
+  candidates.sort((a, b) => moneyScore(b) - moneyScore(a));
+  const explicit = candidates.find(x => /\.\d{2}$/.test(x));
+  if (explicit) return explicit;
+  return recoverCurrencyDecimal(candidates[0]);
 }
 
 export function extractFocusedValue(text) {
-  const x = normalizeDigits(text).replace(/(\d)[.,]\s+(\d{2,3})\b/g, "$1.$2");
-  const values = (x.match(MONEY_RE) || []).map(normalizeMoney).filter(Boolean);
+  const values = extractMoneyCandidates(text).map(normalizeMoney).filter(Boolean);
   values.sort((a, b) => moneyScore(b) - moneyScore(a));
   return values[0] || "";
 }
@@ -56,3 +57,15 @@ function moneyScore(value) {
   const n = Number(value);
   return decimal + digits * 4 + (n >= 10 ? 20 : 0) + (n >= 100 ? 20 : 0);
 }
+function extractMoneyCandidates(text) {
+  const x = normalizeDigits(text).replace(/(\d)[.,]\s+(\d{2,3})\b/g, "$1.$2");
+  return x.match(MONEY_RE) || [];
+}
+
+function recoverCurrencyDecimal(value) {
+  if (/\./.test(value)) return value;
+  const digits = value.replace(/\D/g, "");
+  if (digits.length < 4) return value;
+  return `${digits.slice(0, -2)}.${digits.slice(-2)}`;
+}
+
