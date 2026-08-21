@@ -1,22 +1,18 @@
-Version: 1.0.6
-PDF Declaration Extractor - Ver. 1.0.6
+Version: 1.0.7
+PDF Declaration Extractor - Ver. 1.0.7
 Validation summary
-- Built directly on Ver. 1.0.5.
-- Exactly one declaration per PDF preserved.
-- Customs-page selection, Dec. No., Date, Excel export, and invoice-number rejection preserved.
-- Description cleanup regression:
-  input  = E الخلرود ase y الرسالة توصيف 0 OILWELL SUPPLIES ( GASKET, RING )
-  output = OILWELL SUPPLIES ( GASKET, RING )
-- Existing quantity/unit cleanup preserved for 5 EA :, 5 68 :, 5 E8 :, and similar prefixes.
-- Added a third VALUE validation layer dedicated to decimal-separator recovery.
-- Decimal layer re-OCRs only the narrow VALUE row at higher magnification.
-- Decimal layer uses PSM 7 and PSM 13 plus alternate image thresholds.
-- Decimal OCR whitelist contains only digits, dot, comma, dollar sign, and spaces.
-- Explicit values such as 217.02 are preferred over digit-only candidates.
-- Currency fallback regression: 21702 -> 217.02 when all OCR passes miss the separator.
-- Split amount handling such as 9290. 86 -> 9290.86 remains supported.
-- Version displayed under Developed By A. ElHawary: Ver. 1.0.6.
-- All JavaScript source files are below 150 lines.
+- Built directly on Ver. 1.0.6.
+- Exactly one declaration per PDF logic preserved.
+- Fresh OCR worker created for every individual PDF.
+- OCR worker terminated after every individual PDF.
+- No OCR worker is shared across two PDFs in a batch.
+- Per-PDF page collection is isolated until that PDF completes.
+- Temporary page and validation canvases are released after use.
+- PDF.js loading task is destroyed after each PDF before the next begins.
+- Per-page result-table rendering removed from the OCR loop to reduce batch memory/CPU pressure.
+- Customs-page selection, Dec. No., Date, Description, VALUE, decimal recovery, invoice rejection, and Excel export logic preserved.
+- Version displayed under Developed By A. ElHawary: Ver. 1.0.7.
+- JavaScript source files must remain below 150 lines.
 - JavaScript syntax checks must pass before submission.
 - Arabic and English OCR model gzip integrity checks must pass before submission.
 - Excel template remains unchanged.
