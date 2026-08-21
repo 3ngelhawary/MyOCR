@@ -1,26 +1,13 @@
-Target: GitHub Pages static web application
-Main task: one declaration record per scanned PDF
-
-Checked - 2026-08-21
-- Multiple PDF selection preserved.
-- Exactly one declaration can be exported per PDF.
-- Customs / جمرك page is prioritized over all other pages.
-- Scanner stops after a usable Customs / جمرك declaration page is found.
-- If Customs / جمرك is present but no declaration data is readable there, an invoice-page fallback is not exported.
-- Declaration-number matching supports 3, 4, or 5 digits/year.
-- Optional variable prefix before ./number/year is supported.
-- Dec. No. selection uses Dec./Declaration/رقم البيان context.
-- Invoice / Inv. number candidates are rejected.
-- Invoice-associated date candidates are rejected.
-- Declaration date is taken from the same declaration page.
-- Description captures multiple lines below Goods / الطرود.
-- Phrase "details as per inv's att" is removed from Description.
-- Value extraction below VALUE is preserved.
-- Arabic + English OCR preserved.
-- Arabic/Persian digits are normalized.
-- Excel export uses the supplied workbook template unchanged.
-- Excel keeps the two-row Dec. No./date layout.
-- Value and Description remain merged over the two-row declaration entry.
-- No server/database added.
-- PDF loading-task destroy fix preserved.
-- Cache-busting version updated for GitHub Pages.
+PDF Declaration Extractor - Ver. 1.0.0
+Validation summary
+- One declaration record per PDF preserved.
+- Customs / جمرك page priority preserved.
+- Dec. No. now supports prefixes such as SH/5050/2016 and rejects Invoice/Invoices No. candidates.
+- Declaration number ranking strongly favors the upper Customs declaration header.
+- VALUE extraction now prefers the full amount on the VALUE row and rejects stray one-digit OCR tokens when a decimal amount exists.
+- Description captures all lines below Goods / الطرود until the next field.
+- DETAILS AS PER THE INV.'S ATT and equivalent OCR variants are excluded.
+- Declaration date remains selected from the same declaration page and favors a Date / التاريخ label.
+- Version displayed under Developed By A. ElHawary: Ver. 1.0.0.
+- JavaScript syntax checks passed.
+- Sample-layout regression test passed: SH/5050/2016, 22/8/2016, 9290.86, OILWELL SUPPLIES ( ELBOW, PIPE, SEAL).

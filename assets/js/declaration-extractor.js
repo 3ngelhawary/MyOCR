@@ -1,7 +1,6 @@
-const DEC_RE = /(?:[\p{L}\p{N}_ -]{1,30}\.\s*\/\s*)?\d{3,5}\s*\/\s*(?:19|20)\d{2}/gu;
+const DEC_RE = /(?:[\p{L}][\p{L}\p{N}._-]{0,15}\s*\/\s*)?\d{3,5}\s*\/\s*(?:19|20)\d{2}/gu;
 const DATE_RE = /\b(?:0?[1-9]|[12]\d|3[01])\s*[\/.\-]\s*(?:0?[1-9]|1[0-2])\s*[\/.\-]\s*(?:19|20)\d{2}\b/g;
-const MONEY_RE = /(?:[$€£]\s*)?\d[\d,]*(?:\.\d{1,3})?/g;
-const IGNORE_DESC_RE = /details?\s+as\s+per\s+inv(?:oice)?\s*['’]?s?\s*\.?\s*att\.?/ig;
+const MONEY_RE = /\d[\d,]*(?:\.\d{1,3})?/g;
 
 export function isCustomsPage(page) {
   const text = normalizeText(`${page.ocrText || ""} ${page.nativeText || ""}`);
@@ -11,9 +10,9 @@ export function isCustomsPage(page) {
 export function extractDeclarations(page, sourceFile) {
   const words = page.ocrWords || [], lines = makeLines(words);
   const text = normalizeText(page.ocrText || page.nativeText || "");
-  const dec = findDeclarationNumber(lines, text);
-  const description = findDescription(words, lines, page);
-  const value = findValue(words, lines, page);
+  const dec = findDeclarationNumber(lines, text, page);
+  const description = findDescription(lines);
+  const value = findValue(words, lines);
   if (!dec && !description && !value) return [];
   return [{ sourceFile, pageNumber: page.pageNumber, decNo: dec?.value || "",
     decDate: findDeclarationDate(dec?.line, lines, text), description, value,
@@ -25,103 +24,100 @@ export function normalizeDigits(value) {
   return String(value || "").replace(/[٠-٩]/g, c => ar.indexOf(c)).replace(/[۰-۹]/g, c => fa.indexOf(c));
 }
 
-function findDeclarationNumber(lines, text) {
+function findDeclarationNumber(lines, text, page) {
+  const customs = lines.filter(l => hasCustomsLabel(l.text));
+  const height = page.renderHeight || Math.max(1, ...lines.map(l => l.bottom));
   const candidates = [];
   lines.forEach((line, i) => {
     for (const raw of normalizeDigits(line.text).match(DEC_RE) || []) {
       if (isInvoiceLine(line.text) || nearbyInvoiceLabel(lines, i)) continue;
-      let score = 1000 + i;
-      if (hasDecLabel(line.text)) score -= 900;
-      for (let d = 1; d <= 2; d++) if (lines[i - d] && hasDecLabel(lines[i - d].text)) score -= 650 / d;
+      let score = line.top / height * 700;
+      if (line.top <= height * 0.35) score -= 350;
+      if (hasDecLabel(line.text)) score -= 1000;
+      if (/^[A-Za-z\u0600-\u06ff]/.test(cleanDecNo(raw))) score -= 180;
+      for (let d = 1; d <= 2; d++) if (lines[i-d] && hasDecLabel(lines[i-d].text)) score -= 600 / d;
+      if (customs.length) score += Math.min(...customs.map(c => verticalDistance(c, line))) * 0.8 - 500;
       candidates.push({ value: cleanDecNo(raw), line, score });
     }
   });
   candidates.sort((a, b) => a.score - b.score);
   if (candidates.length) return candidates[0];
   const fallback = (text.match(DEC_RE) || []).map(cleanDecNo);
-  return fallback.length === 1 && !/invoice|\binv\.?\b/i.test(text) ? { value: fallback[0], line: null } : null;
+  return fallback.length === 1 ? { value: fallback[0], line: null } : null;
 }
 
 function findDeclarationDate(decLine, lines, text) {
   const candidates = [];
   lines.forEach((line, i) => {
     if (isInvoiceLine(line.text) || nearbyInvoiceLabel(lines, i)) return;
-    for (const raw of normalizeDigits(line.text).match(DATE_RE) || []) candidates.push({ date: cleanDate(raw), line });
+    for (const raw of normalizeDigits(line.text).match(DATE_RE) || []) {
+      let score = decLine ? lineDistance(decLine, line) : i * 20;
+      if (/\bdate\b/i.test(line.text) || /التاريخ/.test(arabicClean(line.text))) score -= 500;
+      candidates.push({ date: cleanDate(raw), score });
+    }
   });
-  if (!candidates.length) return cleanDate((text.match(DATE_RE) || [""])[0]);
-  if (!decLine) return candidates[0].date;
-  candidates.sort((a, b) => lineDistance(decLine, a.line) - lineDistance(decLine, b.line));
-  return candidates[0].date;
+  if (candidates.length) return candidates.sort((a,b) => a.score-b.score)[0].date;
+  return cleanDate((text.match(DATE_RE) || [""])[0]);
 }
 
-function findValue(words, lines, page) {
-  const label = words.find(w => /^value$/i.test(cleanToken(w.text)));
-  if (label) {
-    const cx = label.left + label.width / 2, maxY = Math.max(120, (page.renderHeight || 0) * 0.28);
-    const maxX = Math.max(100, (page.renderWidth || 0) * 0.12);
-    const hits = words.filter(w => w.top >= label.top + label.height * 0.4)
-      .map(w => ({ w, raw: moneyToken(w.text) })).filter(x => x.raw)
-      .filter(x => Math.abs((x.w.left + x.w.width / 2) - cx) <= maxX && x.w.top - label.top <= maxY)
-      .map(x => ({ ...x, score: x.w.top - label.top + Math.abs((x.w.left + x.w.width / 2) - cx) * 0.35 }))
-      .sort((a, b) => a.score - b.score);
-    if (hits.length) return hits[0].raw;
-  }
-  const i = lines.findIndex(l => /\bvalue\b/i.test(l.text));
-  if (i >= 0) for (const line of lines.slice(i, i + 4)) {
-    const values = moneyMatches(line.text.replace(/\bvalue\b/ig, "")); if (values.length) return values[0];
+function findValue(words, lines) {
+  const valueLines = lines.filter(l => hasValueLabel(l.text));
+  for (const line of valueLines) {
+    const after = line.text.replace(/^.*?\bvalue\b/i, "");
+    const direct = pickBestMoney(after);
+    if (direct) return direct;
+    const cy = (line.top + line.bottom) / 2, tolerance = Math.max(28, line.height * 1.3);
+    const band = words.filter(w => Math.abs((w.top + w.height / 2) - cy) <= tolerance)
+      .sort((a,b) => a.left-b.left).map(w => w.text).join(" ");
+    const amount = pickBestMoney(band.replace(/^.*?\bvalue\b/i, ""));
+    if (amount) return amount;
   }
   return "";
 }
 
-function findDescription(words, lines, page) {
-  const label = words.find(w => isGoodsLabel(w.text));
-  if (!label) return findDescriptionByLines(lines);
-  const cx = label.left + label.width / 2, halfWidth = Math.max(220, (page.renderWidth || 0) * 0.28);
-  const maxY = Math.max(320, (page.renderHeight || 0) * 0.38), selected = [];
-  for (const line of lines.filter(l => l.top >= label.top + label.height * 0.5).sort((a,b) => a.top - b.top)) {
-    if (line.top - label.top > maxY) break;
-    const local = line.words.filter(w => Math.abs((w.left + w.width / 2) - cx) <= halfWidth);
-    if (!local.length || local.some(w => isGoodsLabel(w.text))) continue;
-    const text = cleanDescription(joinReadingOrder(local));
-    if (!text) continue;
-    if (isDescriptionStop(text)) break;
-    if (selected.length && line.top - selected.at(-1).bottom > Math.max(70, line.height * 3.2)) break;
-    selected.push({ text, bottom: line.bottom });
+function findDescription(lines) {
+  const goodsIndex = lines.findIndex(l => hasGoodsLabel(l.text));
+  if (goodsIndex < 0) return "";
+  const out = [];
+  for (const line of lines.slice(goodsIndex + 1, goodsIndex + 16)) {
+    const raw = normalizeText(line.text).trim();
+    if (!raw) continue;
+    if (hasValueLabel(raw) || isDescriptionStop(raw)) break;
+    if (isIgnoredDescriptionLine(raw)) continue;
+    const text = cleanDescription(raw);
+    if (text) out.push(text);
   }
-  return selected.map(x => x.text).join(" ").replace(/\s{2,}/g, " ").trim();
+  return cleanDescription(out.join(" "));
 }
 
-function findDescriptionByLines(lines) {
-  const i = lines.findIndex(l => hasGoodsLabel(l.text)); if (i < 0) return "";
-  const out = [];
-  for (const line of lines.slice(i + 1, i + 12)) {
-    const text = cleanDescription(line.text); if (!text) continue;
-    if (isDescriptionStop(text)) break; out.push(text);
-  }
-  return out.join(" ").trim();
+function pickBestMoney(text) {
+  const values = (normalizeDigits(text).match(MONEY_RE) || []).map(raw => ({ raw: raw.replace(/,/g,""),
+    decimal: /\.\d{1,3}$/.test(raw), digits: (raw.match(/\d/g) || []).length }));
+  values.sort((a,b) => Number(b.decimal)-Number(a.decimal) || b.digits-a.digits);
+  return values[0]?.raw || "";
 }
 
 function makeLines(words) {
   const map = new Map();
-  for (const w of words) { const key = `${w.block}:${w.paragraph}:${w.line}`; if (!map.has(key)) map.set(key, []); map.get(key).push(w); }
+  for (const w of words) { const key=`${w.block}:${w.paragraph}:${w.line}`; if (!map.has(key)) map.set(key,[]); map.get(key).push(w); }
   return [...map.values()].map(items => { const left=Math.min(...items.map(w=>w.left)), top=Math.min(...items.map(w=>w.top));
     const right=Math.max(...items.map(w=>w.left+w.width)), bottom=Math.max(...items.map(w=>w.top+w.height));
     return { words:items, text:joinReadingOrder(items), left, top, right, bottom, height:bottom-top }; }).sort((a,b)=>a.top-b.top||a.left-b.left);
 }
 
 function joinReadingOrder(words) { const ar=words.reduce((n,w)=>n+((w.text.match(/[\u0600-\u06ff]/g)||[]).length),0), la=words.reduce((n,w)=>n+((w.text.match(/[A-Za-z]/g)||[]).length),0); return [...words].sort((a,b)=>ar>la?b.left-a.left:a.left-b.left).map(w=>w.text).join(" "); }
-function hasDecLabel(t) { return /\bdec(?:laration)?\s*\.?\s*(?:no|number)\b/i.test(t) || /رقم\s*(?:البيان|البيان\s*الجمركي|التصريح)/.test(arabicClean(t)); }
-function isInvoiceLine(t) { return /\binvoice\b|\binv\.?\s*(?:no|number|#)?\b/i.test(t); }
-function nearbyInvoiceLabel(lines, i) { return [i-1,i].some(n => n >= 0 && isInvoiceLine(lines[n].text)); }
-function isGoodsLabel(t) { const x=arabicClean(cleanToken(t)); return x==="goods"||x==="good"||x.includes("الطرود")||x==="طرود"; }
-function hasGoodsLabel(t) { return String(t).split(/\s+/).some(isGoodsLabel); }
-function isDescriptionStop(t) { return /\b(value|date|declaration|dec\.?\s*no|weight|invoice|currency|origin|total)\b/i.test(t) || /القيمه|القيمة|الوزن|الفاتوره|الفاتورة|التاريخ|رقم\s*البيان/.test(arabicClean(t)); }
-function cleanDescription(t) { return String(t||"").replace(IGNORE_DESC_RE," ").replace(/\s{2,}/g," ").trim(); }
-function moneyMatches(t) { return (normalizeDigits(t).match(MONEY_RE)||[]).map(moneyToken).filter(Boolean); }
-function moneyToken(t) { const m=normalizeDigits(t).replace(/\s/g,"").match(/(?:[$€£])?(\d[\d,]*(?:\.\d{1,3})?)/); return m ? m[1].replace(/,/g,"") : ""; }
-function cleanToken(t) { return normalizeDigits(t).toLowerCase().replace(/[\u200e\u200f\u202a-\u202e]/g,"").replace(/[\s:;,$€£()[\]{}]/g,"").replace(/ـ/g,""); }
-function arabicClean(t) { return String(t).replace(/[إأآ]/g,"ا").replace(/[ًٌٍَُِّْ]/g,""); }
+function hasCustomsLabel(t) { return /\bcustoms?\b/i.test(t) || /جمرك/.test(arabicClean(t)); }
+function hasDecLabel(t) { return /\b(?:customs?\s+)?dec(?:laration)?\s*\.?\s*(?:no|number)\b/i.test(t) || /رقم\s*(?:البيان|البيان\s*الجمركي|التصريح)/.test(arabicClean(t)); }
+function isInvoiceLine(t) { return /\binvoices?\b|\binv\.?\s*['’]?s?\s*(?:no|number|#)?\b/i.test(t); }
+function nearbyInvoiceLabel(lines,i) { return [i-1,i,i+1].some(n => n>=0 && n<lines.length && isInvoiceLine(lines[n].text)); }
+function hasGoodsLabel(t) { const x=arabicClean(t); return /\b(?:description\s+of\s+)?goods?\b/i.test(x) || /الطرود|طرود/.test(x); }
+function hasValueLabel(t) { return /\bvalue\b/i.test(t) || /القيمه|القيمة/.test(arabicClean(t)); }
+function isDescriptionStop(t) { return /\b(date|declaration|dec\.?\s*no|weight|invoice|currency|origin|total|supplier|p\.?\s*order)\b/i.test(t) || /القيمه|القيمة|الوزن|الفاتوره|الفاتورة|التاريخ|رقم\s*البيان|المورد/.test(arabicClean(t)); }
+function isIgnoredDescriptionLine(t) { return /details?\s+as\s+per/i.test(t) || /inv(?:oice)?\.?\s*['’]?\s*s?\s*\.?\s*att/i.test(t); }
+function cleanDescription(t) { let x=String(t||""); const i=x.search(/details?\s+as\s+per\b/i); if(i>=0)x=x.slice(0,i); return x.replace(/\s+\)/g,")").replace(/\s{2,}/g," ").trim(); }
 function normalizeText(t) { return normalizeDigits(t).replace(/[\u200e\u200f\u202a-\u202e]/g," "); }
+function arabicClean(t) { return String(t).replace(/[إأآ]/g,"ا").replace(/[ًٌٍَُِّْ]/g,""); }
 function cleanDecNo(t) { return normalizeDigits(t).replace(/\s+/g,"").replace(/\/{2,}/g,"/"); }
 function cleanDate(t) { return normalizeDigits(t).replace(/\s+/g,"").replace(/[.\-]/g,"/"); }
-function lineDistance(a,b) { return Math.abs((a.top+a.bottom)/2-(b.top+b.bottom)/2)+Math.abs((a.left+a.right)/2-(b.left+b.right)/2)*0.12; }
+function verticalDistance(a,b) { return Math.abs((a.top+a.bottom)/2-(b.top+b.bottom)/2); }
+function lineDistance(a,b) { return verticalDistance(a,b)+Math.abs((a.left+a.right)/2-(b.left+b.right)/2)*0.12; }

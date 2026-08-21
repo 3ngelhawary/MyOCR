@@ -1,7 +1,7 @@
 import { state, resetResults } from "./state.js";
 import { loadPdf, extractPageData, renderPage, canvasToPngBlob } from "./pdf-service.js?v=20260820-1";
 import { createOcrWorker, recognizePage, terminateOcrWorker } from "./ocr-service.js";
-import { extractDeclarations, isCustomsPage } from "./declaration-extractor.js?v=20260821-2";
+import { extractDeclarations, isCustomsPage } from "./declaration-extractor.js?v=1.0.0";
 import { exportDeclarationExcel } from "./excel-export.js";
 import { $, initTabs, renderResults, setBusy, setProgress } from "./ui.js";
 import { exportTxt, exportJson, exportWordsCsv, exportZip } from "./export-service.js";
