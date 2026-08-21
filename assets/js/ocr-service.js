@@ -60,6 +60,29 @@ export async function recognizePage(canvas, dpi) {
   };
 }
 
+
+export async function recognizeRegion(canvas, dpi, region, pageSegMode = "11") {
+  if (!worker) throw new Error("OCR worker is not initialized.");
+  const left = Math.max(0, Math.floor(region.left || 0));
+  const top = Math.max(0, Math.floor(region.top || 0));
+  const width = Math.max(1, Math.min(canvas.width - left, Math.floor(region.width || canvas.width)));
+  const height = Math.max(1, Math.min(canvas.height - top, Math.floor(region.height || canvas.height)));
+  const crop = document.createElement("canvas");
+  crop.width = width; crop.height = height;
+  const ctx = crop.getContext("2d", { alpha: false, willReadFrequently: true });
+  ctx.fillStyle = "white"; ctx.fillRect(0, 0, width, height);
+  ctx.drawImage(canvas, left, top, width, height, 0, 0, width, height);
+  await worker.setParameters({ user_defined_dpi: String(dpi), tessedit_pageseg_mode: String(pageSegMode) });
+  try {
+    const result = await worker.recognize(crop, { rotateAuto: false }, { text: true, tsv: true });
+    const words = parseTsv(result.data.tsv || "").map(w => ({ ...w, left: w.left + left, top: w.top + top }));
+    return { text: (result.data.text || "").trim(), words, confidence: average(words.map(x => x.confidence).filter(x => x >= 0)) };
+  } finally {
+    crop.width = 1; crop.height = 1;
+    await worker.setParameters({ tessedit_pageseg_mode: "3" }).catch(() => {});
+  }
+}
+
 export async function terminateOcrWorker() {
   if (worker) await worker.terminate().catch(() => {});
   worker = null;
