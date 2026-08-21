@@ -27,7 +27,7 @@ export async function loadPdf(file) {
     contentDispositionFilename: meta.contentDispositionFilename || "",
     contentLength: meta.contentLength || 0
   };
-  return { pdf, metadata, outline: clean(outline) };
+  return { pdf, loadingTask: task, metadata, outline: clean(outline) };
 }
 
 export async function extractPageData(pdf, pageNumber) {

@@ -4,24 +4,30 @@ Static browser application for scanned Arabic/English declaration PDFs.
 
 ## Main workflow
 1. Select one or more PDFs.
-2. The browser renders and OCRs every page locally.
-3. Declaration pages are detected from the declaration-number pattern.
-4. From the same page the app extracts:
+2. Each PDF is treated as containing exactly one declaration.
+3. Pages are OCR-scanned locally until the declaration page is identified.
+4. A page containing `Customs` or `جمرك` has priority over all other pages.
+5. From that page the app extracts:
    - Dec. No.
-   - declaration date
-   - Description below `Goods` or `الطرود`
+   - declaration date from the same page
+   - full Description below `Goods` or `الطرود`
    - Value below `VALUE $`
-5. Export to Excel using the included sample workbook layout.
+6. Export to Excel using the included sample workbook layout.
 
-## Declaration number patterns
+## Declaration number rules
+Supported examples:
 - `123/2016`
 - `1234/2016`
 - `12345/2016`
-- optional variable prefix followed by `/`, then the number/year form.
+- optional variable prefix such as `ABC./12345/2016`
+
+Declaration numbers are selected using nearby `Dec. No.`, `Declaration No.`, or `رقم البيان` context. Numbers associated with `Invoice` / `Inv.` are rejected so invoice numbers are not used as declaration numbers.
+
+## Description rules
+Description is collected across multiple lines below `Goods` / `الطرود` until the next recognized field. The phrase `details as per inv's att` is removed from the extracted description.
 
 ## Excel layout
-The included `assets/templates/declaration-template.xlsx` is the supplied sample template.
-Each declaration uses two rows. The declaration date is written on the second row of the Dec. No. column. Value and Description remain merged across the two rows. Other sample columns are preserved and left blank because they are not part of the requested extraction scope.
+The included `assets/templates/declaration-template.xlsx` is the supplied sample template. Each PDF creates at most one declaration entry. Each declaration uses two rows: the declaration number is on the first row and the declaration date is on the second row of the Dec. No. column. Value and Description remain merged across the two rows. Other sample columns are preserved and left blank because they are outside the requested extraction scope.
 
 ## Privacy
 PDFs are processed in the browser and are not uploaded by this application.

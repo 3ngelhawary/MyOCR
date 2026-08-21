@@ -1,18 +1,26 @@
 Target: GitHub Pages static web application
-Main task: declaration data extraction from scanned PDF/PDFs
+Main task: one declaration record per scanned PDF
 
-Checked:
-- Multiple PDF selection supported.
-- Arabic + English OCR path preserved.
-- Declaration-number matching supports 3, 4, or 5 digits/year and an optional variable prefix.
-- Arabic/Persian numerals are normalized before matching.
-- Declaration date is selected from the same detected declaration page.
-- Description searches below Goods / الطرود.
-- Value searches below VALUE and returns numeric amount text.
-- Declaration result table includes source PDF and page for review.
-- Excel export uses the supplied workbook as a local template.
-- Excel keeps the two-row Dec. No./date layout from the sample.
-- Value and Description cells are merged over the declaration pair.
-- Unrequested sample columns remain blank.
+Checked - 2026-08-21
+- Multiple PDF selection preserved.
+- Exactly one declaration can be exported per PDF.
+- Customs / جمرك page is prioritized over all other pages.
+- Scanner stops after a usable Customs / جمرك declaration page is found.
+- If Customs / جمرك is present but no declaration data is readable there, an invoice-page fallback is not exported.
+- Declaration-number matching supports 3, 4, or 5 digits/year.
+- Optional variable prefix before ./number/year is supported.
+- Dec. No. selection uses Dec./Declaration/رقم البيان context.
+- Invoice / Inv. number candidates are rejected.
+- Invoice-associated date candidates are rejected.
+- Declaration date is taken from the same declaration page.
+- Description captures multiple lines below Goods / الطرود.
+- Phrase "details as per inv's att" is removed from Description.
+- Value extraction below VALUE is preserved.
+- Arabic + English OCR preserved.
+- Arabic/Persian digits are normalized.
+- Excel export uses the supplied workbook template unchanged.
+- Excel keeps the two-row Dec. No./date layout.
+- Value and Description remain merged over the two-row declaration entry.
 - No server/database added.
-- Existing raw OCR exports remain available.
+- PDF loading-task destroy fix preserved.
+- Cache-busting version updated for GitHub Pages.

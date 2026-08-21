@@ -1,7 +1,7 @@
 import { state, resetResults } from "./state.js";
-import { loadPdf, extractPageData, renderPage, canvasToPngBlob } from "./pdf-service.js";
+import { loadPdf, extractPageData, renderPage, canvasToPngBlob } from "./pdf-service.js?v=20260820-1";
 import { createOcrWorker, recognizePage, terminateOcrWorker } from "./ocr-service.js";
-import { extractDeclarations } from "./declaration-extractor.js";
+import { extractDeclarations, isCustomsPage } from "./declaration-extractor.js?v=20260821-2";
 import { exportDeclarationExcel } from "./excel-export.js";
 import { $, initTabs, renderResults, setBusy, setProgress } from "./ui.js";
 import { exportTxt, exportJson, exportWordsCsv, exportZip } from "./export-service.js";
@@ -35,7 +35,7 @@ function acceptFiles(fileList) {
   resetResults(); state.files = files; clearOutputs();
   $("fileName").textContent = files.length === 1 ? files[0].name : `${files.length} PDF files selected`;
   $("fileSize").textContent = formatBytes(files.reduce((n,f) => n + f.size, 0));
-  setProgress(0, "Ready", "Declaration No., date, Goods/الطرود and VALUE $ will be extracted from declaration pages.");
+  setProgress(0, "Ready", "One declaration will be extracted per PDF. The Customs / جمرك page has priority.");
   setBusy(false, true, false);
 }
 
@@ -55,21 +55,33 @@ async function scan() {
 }
 
 async function scanFile(file, fileIndex, dpi, includeImages) {
-  setProgress((fileIndex / state.files.length) * 100, `Opening ${file.name}`, "Reading PDF locally...");
+  setProgress((fileIndex / state.files.length) * 100, `Opening ${file.name}`, "Searching for the Customs / جمرك declaration page...");
   const loaded = await loadPdf(file);
-  state.documents.push({ fileName: file.name, pageCount: loaded.pdf.numPages, metadata: loaded.metadata, outline: loaded.outline });
-  for (let pageNo = 1; pageNo <= loaded.pdf.numPages && !state.stopRequested; pageNo++) {
-    const unit = 100 / state.files.length, base = fileIndex * unit + ((pageNo - 1) / loaded.pdf.numPages) * unit;
-    state.progressBase = base; state.progressSpan = unit / loaded.pdf.numPages;
-    setProgress(base, `${file.name} - page ${pageNo}/${loaded.pdf.numPages}`, "Extracting and rendering page...");
-    const data = await extractPageData(loaded.pdf, pageNo), rendered = await renderPage(data.page, dpi);
-    if (includeImages) data.pageImageBlob = await canvasToPngBlob(rendered.canvas);
-    const ocr = await recognizePage(rendered.canvas, rendered.effectiveDpi);
-    const page = buildPage(file.name, pageNo, data, rendered, ocr);
-    state.pages.push(page); state.declarations.push(...extractDeclarations(page, file.name));
-    rendered.canvas.width = 1; rendered.canvas.height = 1; renderResults(state);
+  let selected = null, fallback = null, sawCustoms = false;
+  try {
+    state.documents.push({ fileName: file.name, pageCount: loaded.pdf.numPages, metadata: loaded.metadata, outline: loaded.outline });
+    for (let pageNo = 1; pageNo <= loaded.pdf.numPages && !state.stopRequested; pageNo++) {
+      const unit = 100 / state.files.length, base = fileIndex * unit + ((pageNo - 1) / loaded.pdf.numPages) * unit;
+      state.progressBase = base; state.progressSpan = unit / loaded.pdf.numPages;
+      setProgress(base, `${file.name} - page ${pageNo}/${loaded.pdf.numPages}`, "OCR scanning for Customs / جمرك...");
+      const data = await extractPageData(loaded.pdf, pageNo), rendered = await renderPage(data.page, dpi);
+      if (includeImages) data.pageImageBlob = await canvasToPngBlob(rendered.canvas);
+      const ocr = await recognizePage(rendered.canvas, rendered.effectiveDpi);
+      const page = buildPage(file.name, pageNo, data, rendered, ocr);
+      state.pages.push(page);
+      const record = extractDeclarations(page, file.name)[0] || null;
+      if (record && !fallback) fallback = record;
+      const customs = isCustomsPage(page);
+      rendered.canvas.width = 1; rendered.canvas.height = 1;
+      if (customs) { sawCustoms = true; if (record) { selected = record; renderResults(state); break; } }
+      renderResults(state);
+    }
+    if (selected || (!sawCustoms && fallback)) state.declarations.push(selected || fallback);
+    renderResults(state);
+  } finally {
+    if (typeof loaded.loadingTask?.destroy === "function") await loaded.loadingTask.destroy().catch(() => {});
+    else if (typeof loaded.pdf?.cleanup === "function") await loaded.pdf.cleanup().catch(() => {});
   }
-  await loaded.pdf.destroy().catch(() => {});
 }
 
 function buildPage(fileName, pageNo, data, rendered, ocr) {
