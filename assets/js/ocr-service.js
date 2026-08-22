@@ -7,8 +7,10 @@ const OCR_RUNTIMES = [
     corePath: "https://cdn.jsdelivr.net/npm/tesseract.js-core@7.0.0/tesseract-core-lstm.wasm.js" }
 ];
 
+export function hasOcrWorker() { return worker !== null; }
+
 export async function createOcrWorker(onProgress) {
-  if (!globalThis.Tesseract) throw new Error("Tesseract.js failed to load.");
+  if (!globalThis.Tesseract) throw new Error("Tesseract.js failed to load. Check the internet connection.");
   const langPath = new URL("../tessdata", import.meta.url).href.replace(/\/$/, ""), errors = [];
   for (const runtime of OCR_RUNTIMES) {
     try {
@@ -27,8 +29,7 @@ export async function createOcrWorker(onProgress) {
 export async function recognizePage(canvas, dpi) {
   if (!worker) throw new Error("OCR worker is not initialized.");
   await worker.setParameters({ user_defined_dpi: String(dpi) });
-  const result = await worker.recognize(canvas, { rotateAuto: true }, { text: true, tsv: true });
-  return makeResult(result);
+  return makeResult(await worker.recognize(canvas, { rotateAuto: true }, { text: true, tsv: true }));
 }
 
 export async function recognizeRegion(canvas, dpi, region, pageSegMode = "11") {
@@ -47,19 +48,18 @@ export async function terminateOcrWorker() {
 }
 
 async function recognizeCrop(canvas, dpi, pageSegMode, whitelist, offsetX, offsetY, scale) {
-  if (!worker) throw new Error("OCR worker is not initialized.");
+  if (!worker) { canvas.width = 1; canvas.height = 1; throw new Error("OCR worker is not initialized."); }
   const parameters = { user_defined_dpi: String(dpi), tessedit_pageseg_mode: String(pageSegMode) };
   if (whitelist) parameters.tessedit_char_whitelist = whitelist;
   await worker.setParameters(parameters);
   try {
-    const result = await worker.recognize(canvas, { rotateAuto: false }, { text: true, tsv: true });
-    const parsed = makeResult(result);
+    const parsed = makeResult(await worker.recognize(canvas, { rotateAuto: false }, { text: true, tsv: true }));
     parsed.words = parsed.words.map(w => ({ ...w, left: w.left / scale + offsetX, top: w.top / scale + offsetY,
       width: w.width / scale, height: w.height / scale }));
     return parsed;
   } finally {
     canvas.width = 1; canvas.height = 1;
-    await worker.setParameters({ tessedit_pageseg_mode: "3", tessedit_char_whitelist: "" }).catch(() => {});
+    await worker?.setParameters({ tessedit_pageseg_mode: "3", tessedit_char_whitelist: "" }).catch(() => {});
   }
 }
 
@@ -78,12 +78,31 @@ function createCrop(source, region, enhance, scale = 1, threshold = null, contra
 
 function preprocess(ctx, width, height, threshold, contrast) {
   const image = ctx.getImageData(0, 0, width, height), data = image.data;
-  for (let i = 0; i < data.length; i += 4) {
-    const gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
-    let v = threshold == null ? 128 + (gray - 128) * contrast : (gray < threshold ? 0 : 255);
+  const gray = new Uint8ClampedArray(data.length / 4);
+  for (let i = 0, g = 0; i < data.length; i += 4, g++) gray[g] = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
+  const cut = threshold === "auto" ? otsuThreshold(gray) : threshold;
+  for (let i = 0, g = 0; i < data.length; i += 4, g++) {
+    let v = cut == null ? 128 + (gray[g] - 128) * contrast : (gray[g] < cut ? 0 : 255);
     v = Math.max(0, Math.min(255, Math.round(v))); data[i] = v; data[i + 1] = v; data[i + 2] = v; data[i + 3] = 255;
   }
   ctx.putImageData(image, 0, 0);
+}
+
+export function otsuThreshold(gray) {
+  const histogram = new Array(256).fill(0);
+  for (const value of gray) histogram[value]++;
+  const total = gray.length;
+  let sum = 0; for (let i = 0; i < 256; i++) sum += i * histogram[i];
+  let sumBack = 0, weightBack = 0, best = 0, cut = 128;
+  for (let i = 0; i < 256; i++) {
+    weightBack += histogram[i]; if (!weightBack) continue;
+    const weightFore = total - weightBack; if (!weightFore) break;
+    sumBack += i * histogram[i];
+    const meanBack = sumBack / weightBack, meanFore = (sum - sumBack) / weightFore;
+    const variance = weightBack * weightFore * (meanBack - meanFore) ** 2;
+    if (variance > best) { best = variance; cut = i; }
+  }
+  return cut;
 }
 
 function makeResult(result) {

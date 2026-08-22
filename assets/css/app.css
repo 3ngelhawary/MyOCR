@@ -3,3 +3,18 @@
 .excel-button{font-size:15px;padding-left:20px;padding-right:20px}.results-panel .table-wrap{min-height:160px}#declarationsTable td:nth-child(7){white-space:normal;min-width:260px;max-width:520px}.upload-panel .file-row{align-items:flex-start}
 
 .signature .version{font-size:11px;font-weight:700;color:#d9a0a0;text-align:center;margin-top:3px;letter-spacing:.4px}
+
+/* Ver. 1.0.8 - review table, flags and failure reporting */
+.hint { margin: 0 0 10px; font-size: 12px; opacity: .75; }
+.failures-panel { border-left: 3px solid #c0392b; }
+.failures-panel strong { display: block; margin-bottom: 8px; }
+td.cell-edit { background: rgba(70, 130, 255, .10); cursor: text; min-width: 70px; }
+td.cell-edit:focus { outline: 2px solid #4682ff; background: rgba(70, 130, 255, .20); }
+td.cell-edit.cell-empty { background: rgba(192, 57, 43, .12); }
+tr.row-warn td { background-color: rgba(240, 173, 78, .10); }
+tr.row-edited td { background-color: rgba(46, 160, 90, .10); }
+td.flags { white-space: normal; }
+.flag { display: inline-block; margin: 1px 2px; padding: 1px 6px; border-radius: 10px; font-size: 11px;
+  background: rgba(240, 173, 78, .25); }
+.flag-decimal-recovered { background: rgba(70, 130, 255, .25); }
+.flag-value-inferred, .flag-value-missing, .flag-dec-no-missing { background: rgba(192, 57, 43, .25); }

@@ -1,19 +1,51 @@
-Version: 1.0.7
-PDF Declaration Extractor - Ver. 1.0.7
+Version: 1.0.8
+PDF Declaration Extractor - Ver. 1.0.8
 Validation summary
-- Built directly on Ver. 1.0.6.
-- Exactly one declaration per PDF logic preserved.
-- Fresh OCR worker created for every individual PDF.
-- OCR worker terminated after every individual PDF.
-- No OCR worker is shared across two PDFs in a batch.
-- Per-PDF page collection is isolated until that PDF completes.
+
+Fixes carried in from Ver. 1.0.7
+- Module cache tags unified at ?v=1.0.8 across every internal import.
+  In 1.0.7 value-ocr.js imported ocr-service.js?v=1.0.6 while app.js imported ?v=1.0.7.
+  Browsers key ES modules by full URL, so two separate module instances existed and the
+  decimal-recovery pass always failed with "OCR worker is not initialized", aborting the batch.
+- Every PDF is now processed inside its own try/catch. A corrupt, encrypted or cancelled PDF
+  is recorded in the Skipped PDFs list and the batch continues with the remaining files.
+- PDF.js is loaded through a dynamic import with a jsDelivr -> unpkg fallback, so a CDN failure
+  produces a readable error instead of an inert page. A boot watchdog reports module load failure.
+- VALUE decimal recovery is no longer unconditional. Three modes are selectable:
+  evidence based (default), always (Ver. 1.0.7 behaviour) and never. Recovered values are flagged.
+- .nojekyll restored as required by DEPLOY_GITHUB_PAGES.md.
+- OCR Words table row cap now stops at 1500 rows exactly.
+- PDF Files stat counts processed documents rather than selected files.
+
+Extraction capability added in Ver. 1.0.8
+- Embedded PDF text layers are read directly with full coordinates; OCR is skipped for those pages.
+- OCR worker is created lazily and only for PDFs that actually need OCR.
+- Otsu automatic thresholding available to the enhanced region passes; a fourth decimal pass added.
+- Declaration number header pass now targets the detected Dec. No. band instead of a fixed 34% strip.
+- New fields extracted: Shahada No., Kasima No., Kasima Date, Invoice No., Packages, Gross Weight, Currency.
+- Shahada No. and Kasima No. & Date now populate columns C and D of the Excel template.
+- Labelled fields are read from the text following the label, so several fields on one line resolve correctly.
+- A labelled Dec. No. or Date line is no longer vetoed by an adjacent invoice line.
+- Last-resort VALUE inference from the largest two-decimal amount, marked value-inferred.
+- Per-record flags: decimal-recovered, no-decimal-found, value-inferred, value-missing,
+  dec-no-missing, description-missing, low-confidence.
+- Declarations table cells are editable; corrections flow into Excel, CSV, JSON and ZIP exports.
+- 400 DPI option added.
+
+Preserved from Ver. 1.0.6 / 1.0.7
+- Exactly one declaration per PDF.
+- No OCR worker is shared across two PDFs in a batch; the worker is terminated after every PDF.
+- Per-PDF page collection stays isolated until that PDF completes.
 - Temporary page and validation canvases are released after use.
 - PDF.js loading task is destroyed after each PDF before the next begins.
-- Per-page result-table rendering removed from the OCR loop to reduce batch memory/CPU pressure.
-- Customs-page selection, Dec. No., Date, Description, VALUE, decimal recovery, invoice rejection, and Excel export logic preserved.
-- Version displayed under Developed By A. ElHawary: Ver. 1.0.7.
-- JavaScript source files must remain below 150 lines.
-- JavaScript syntax checks must pass before submission.
-- Arabic and English OCR model gzip integrity checks must pass before submission.
-- Excel template remains unchanged.
-- ZIP integrity must pass before submission.
+- Result tables are refreshed once per completed PDF, not per OCR page.
+- Customs-page selection, Dec. No., Date, Description and VALUE logic unchanged in substance.
+- Excel template file itself is unchanged.
+
+Checks that must pass before submission
+- JavaScript source files remain below 150 lines. Largest is ocr-service.js at 133.
+- JavaScript syntax checks pass for all 16 modules.
+- Arabic and English OCR model gzip integrity checks pass.
+- Every internal import carries the same ?v= tag.
+- Excel template opens and the generated workbook re-opens with correct types and merges.
+- ZIP integrity passes.

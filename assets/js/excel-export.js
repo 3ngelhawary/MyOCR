@@ -18,8 +18,9 @@ export function buildDeclarationSheetXml(xmlText, records) {
   const doc = new DOMParser().parseFromString(xmlText, "application/xml");
   const sheetData = doc.getElementsByTagNameNS(NS, "sheetData")[0];
   const rows = [...sheetData.getElementsByTagNameNS(NS, "row")];
-  const row3 = rows.find(r => r.getAttribute("r") === "3").cloneNode(true);
-  const row4 = rows.find(r => r.getAttribute("r") === "4").cloneNode(true);
+  const source3 = rows.find(r => r.getAttribute("r") === "3"), source4 = rows.find(r => r.getAttribute("r") === "4");
+  if (!source3 || !source4) throw new Error("The Excel template is missing its declaration rows (3 and 4).");
+  const row3 = source3.cloneNode(true), row4 = source4.cloneNode(true);
   rows.filter(r => Number(r.getAttribute("r")) >= 3).forEach(r => r.remove());
   records.forEach((record, i) => {
     const top = 3 + i * 2, bottom = top + 1;
@@ -28,6 +29,9 @@ export function buildDeclarationSheetXml(xmlText, records) {
     setCell(a, "A", top, String(i + 1), true);
     setCell(a, "B", top, record.decNo || "");
     setCell(b, "B", bottom, record.decDate || "");
+    setCell(a, "C", top, record.shahadaNo || "", true);
+    setCell(a, "D", top, record.kasimaNo || "", true);
+    setCell(b, "D", bottom, record.kasimaDate || "");
     setCell(a, "E", top, record.value || "", true);
     setCell(a, "F", top, record.description || "");
     sheetData.appendChild(a); sheetData.appendChild(b);
@@ -49,7 +53,7 @@ function cloneRow(template, rowNo) {
 
 function clearRow(row) {
   [...row.getElementsByTagNameNS(NS, "c")].forEach(c => {
-    [...c.childNodes].forEach(n => { if (n.nodeType === 1 && ["v","is","f"].includes(n.localName)) n.remove(); });
+    [...c.childNodes].forEach(n => { if (n.nodeType === 1 && ["v", "is", "f"].includes(n.localName)) n.remove(); });
     c.removeAttribute("t");
   });
 }
@@ -58,19 +62,21 @@ function setCell(row, col, rowNo, value, numeric = false) {
   const cell = [...row.getElementsByTagNameNS(NS, "c")].find(c => c.getAttribute("r") === `${col}${rowNo}`);
   if (!cell || value === "") return;
   const number = numeric ? Number(String(value).replace(/,/g, "")) : NaN;
-  if (numeric && Number.isFinite(number)) {
+  if (numeric && Number.isFinite(number) && String(value).trim() !== "") {
     const v = row.ownerDocument.createElementNS(NS, "v"); v.textContent = String(number); cell.appendChild(v); return;
   }
   cell.setAttribute("t", "inlineStr");
   const is = row.ownerDocument.createElementNS(NS, "is"), t = row.ownerDocument.createElementNS(NS, "t");
-  t.setAttributeNS("http://www.w3.org/XML/1998/namespace", "xml:space", "preserve"); t.textContent = String(value); is.appendChild(t); cell.appendChild(is);
+  t.setAttributeNS("http://www.w3.org/XML/1998/namespace", "xml:space", "preserve");
+  t.textContent = String(value); is.appendChild(t); cell.appendChild(is);
 }
 
 function updateMerges(doc, count) {
   const mergeCells = doc.getElementsByTagNameNS(NS, "mergeCells")[0];
+  if (!mergeCells) return;
   [...mergeCells.getElementsByTagNameNS(NS, "mergeCell")]
     .filter(m => /(?:^|:)[A-K](?:[3-9]|\d{2,})/.test(m.getAttribute("ref") || "")).forEach(m => m.remove());
-  const pairs = ["A","E","F","G","H","K"];
+  const pairs = ["A", "E", "F", "G", "H", "K"];
   for (let i = 0; i < count; i++) {
     const top = 3 + i * 2, bottom = top + 1;
     for (const col of pairs) {
@@ -81,4 +87,9 @@ function updateMerges(doc, count) {
 }
 
 function dateStamp() { return new Date().toISOString().slice(0, 10); }
-function download(blob, name) { const u=URL.createObjectURL(blob), a=document.createElement("a"); a.href=u; a.download=name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(u),2000); }
+
+function download(blob, name) {
+  const url = URL.createObjectURL(blob), a = document.createElement("a");
+  a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+}

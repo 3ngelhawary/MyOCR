@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="description" content="Browser-based scanned PDF data extractor with Arabic and English OCR.">
   <title>PDF Data Extractor</title>
-  <link rel="stylesheet" href="assets/css/app.css">
+  <link rel="stylesheet" href="assets/css/app.css?v=1.0.8">
   <script defer src="https://unpkg.com/tesseract.js@7.0.0/dist/tesseract.min.js" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/tesseract.js@7.0.0/dist/tesseract.min.js'"></script>
   <script defer src="assets/vendor/jszip.min.js"></script>
 </head>
@@ -15,7 +15,7 @@
       <h1>PDF DATA EXTRACTOR</h1>
       <p>Scanned PDF + native PDF data extraction</p>
     </div>
-    <div class="signature"><div>Developed By A. ElHawary</div><div class="version">Ver. 1.0.7</div></div>
+    <div class="signature"><div>Developed By A. ElHawary</div><div class="version">Ver. 1.0.8</div></div>
   </header>
 
   <main class="shell">
@@ -33,11 +33,27 @@
 
     <section class="panel options-panel">
       <div class="option">
+        <label for="textSource">Text source</label>
+        <select id="textSource">
+          <option value="auto" selected>Auto - use the PDF text layer when present</option>
+          <option value="ocr">Force OCR on every page</option>
+        </select>
+      </div>
+      <div class="option">
         <label for="dpiSelect">OCR render quality</label>
         <select id="dpiSelect">
           <option value="150">150 DPI - faster</option>
           <option value="200">200 DPI</option>
           <option value="300" selected>300 DPI - recommended</option>
+          <option value="400">400 DPI - slow, faint scans</option>
+        </select>
+      </div>
+      <div class="option">
+        <label for="decimalMode">VALUE decimal recovery</label>
+        <select id="decimalMode">
+          <option value="evidence" selected>Evidence based - only when a separator was seen</option>
+          <option value="always">Always - assume the last 2 digits are cents</option>
+          <option value="never">Never - keep the number exactly as read</option>
         </select>
       </div>
       <div class="option">
@@ -68,7 +84,14 @@
       <div class="stat"><span>PDF Files</span><strong id="statFiles">0</strong></div>
       <div class="stat"><span>Pages</span><strong id="statPages">0</strong></div>
       <div class="stat"><span>Declarations</span><strong id="statDeclarations">0</strong></div>
+      <div class="stat"><span>Text-layer pages</span><strong id="statNative">0</strong></div>
+      <div class="stat"><span>Skipped PDFs</span><strong id="statFailed">0</strong></div>
       <div class="stat"><span>OCR confidence</span><strong id="statConfidence">-</strong></div>
+    </section>
+
+    <section id="failuresPanel" class="panel failures-panel" hidden>
+      <strong>Skipped PDFs</strong>
+      <div class="table-wrap"><table id="failuresTable"></table></div>
     </section>
 
     <section class="panel results-panel">
@@ -80,7 +103,10 @@
         <button class="tab" data-tab="annotations">Annotations</button>
         <button class="tab" data-tab="metadata">Metadata</button>
       </div>
-      <div id="tab-declarations" class="tab-body active"><div class="table-wrap"><table id="declarationsTable"></table></div></div>
+      <div id="tab-declarations" class="tab-body active">
+        <p class="hint">Blue cells are editable - correct any field here and the Excel, CSV, JSON and ZIP exports will use your corrections.</p>
+        <div class="table-wrap"><table id="declarationsTable"></table></div>
+      </div>
       <div id="tab-text" class="tab-body">
         <textarea id="textOutput" dir="auto" readonly placeholder="Extracted text will appear here..."></textarea>
       </div>
@@ -107,6 +133,14 @@
     <span>Your PDF is not uploaded by this application.</span>
   </footer>
 
-  <script type="module" src="assets/js/app.js?v=1.0.7"></script>
+  <script type="module" src="assets/js/app.js?v=1.0.8"></script>
+  <script>
+    setTimeout(function () {
+      if (window.__appReady) return;
+      var status = document.getElementById("statusText"), detail = document.getElementById("detailText");
+      if (status) status.textContent = "Load error";
+      if (detail) detail.textContent = "The application modules could not be loaded. Check the internet connection, then reload with Ctrl+F5.";
+    }, 10000);
+  </script>
 </body>
 </html>

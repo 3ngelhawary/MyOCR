@@ -16,5 +16,6 @@ The published address will normally be:
 ## Important
 - Do not remove `.nojekyll`.
 - Keep the `assets/tessdata` folder because it contains the Arabic and English OCR models.
-- Users need internet access to load the pinned PDF.js, Tesseract.js engine, and JSZip browser libraries.
+- Users need internet access to load the pinned PDF.js and Tesseract.js engines. JSZip ships with this folder.
+- `.nojekyll` is included in this folder and must stay in the repository root.
 - The selected PDF itself is processed locally by JavaScript in the browser; this project contains no upload endpoint or backend.

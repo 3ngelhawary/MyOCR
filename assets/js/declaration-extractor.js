@@ -1,7 +1,8 @@
 import { normalizeDigits, normalizeText, arabicClean, hasCustomsLabel, hasDecLabel, hasDateLabel,
   isInvoiceLine, hasGoodsLabel, hasValueLabel, hasFormSignature, textBeforeDetails,
-  isDescriptionStop, cleanDescription, cleanDecNo, cleanDate } from "./declaration-text.js?v=1.0.6";
-import { validateDescription, validateValue, extractFocusedDescription, extractFocusedValue } from "./declaration-validator.js?v=1.0.6";
+  isDescriptionStop, cleanDescription, cleanDecNo, cleanDate } from "./declaration-text.js?v=1.0.8";
+import { validateDescription, validateValue, extractFocusedDescription, extractFocusedValue } from "./declaration-validator.js?v=1.0.8";
+import { extractExtraFields } from "./declaration-fields.js?v=1.0.8";
 
 const DEC_RE = /(?:[A-Za-z\u0600-\u06ff][A-Za-z\u0600-\u06ff0-9._-]{0,15}\s*\/\s*)?\d{3,5}\s*\/\s*(?:19|20)\d{2}/g;
 const DATE_RE = /\b(?:0?[1-9]|[12]\d|3[01])\s*[\/.\-]\s*(?:0?[1-9]|1[0-2])\s*[\/.\-]\s*(?:19|20)\d{2}\b/g;
@@ -18,27 +19,34 @@ export function getCustomsPageScore(page) {
   if ((normalizeDigits(topText).match(DATE_RE) || []).length) score += 150;
   if (hasGoodsLabel(allText)) score += 330; if (hasValueLabel(allText)) score += 330;
   if (hasFormSignature(allText) || /الفاتور/.test(allAr)) score += 180;
+  if (isInvoiceLine(topText) && !/\bcustoms?\b/i.test(topText)) score -= 400;
   return score;
 }
 
-export function extractDeclaration(page, sourceFile) {
+export function extractDeclaration(page, sourceFile, options = {}) {
   const lines = makeLines(page.ocrWords || []), headerLines = makeLines(page.headerOcrWords || []);
   const dec = findDeclarationNumber(headerLines.length ? headerLines : lines, page.renderHeight || 1) ||
     findDeclarationNumber(lines, page.renderHeight || 1);
   const dateLines = headerLines.length ? [...headerLines, ...lines] : lines;
-  const primaryDescription = findDescription(lines), secondaryDescription = extractFocusedDescription(page.descriptionOcrText || "");
-  const primaryValue = findValue(lines), secondaryValue = extractFocusedValue(page.valueOcrText || "");
-  return { sourceFile, pageNumber:page.pageNumber, decNo:dec?.value || "",
-    decDate:findDeclarationDate(dec?.line || null, dateLines, page.renderHeight || 1),
-    description:validateDescription(primaryDescription, secondaryDescription),
-    value:validateValue(primaryValue, secondaryValue, page.valueDecimalOcrText || ""),
-    ocrConfidence:page.ocrConfidence || 0 };
+  const description = validateDescription(findDescription(lines), extractFocusedDescription(page.descriptionOcrText || ""));
+  const primaryValue = findValue(lines);
+  const value = validateValue(primaryValue.value, extractFocusedValue(page.valueOcrText || ""),
+    page.valueDecimalOcrText || page.valueOcrText || "", options.decimalMode || "evidence");
+  const flags = [...value.flags, ...primaryValue.flags];
+  if (!dec) flags.push("dec-no-missing");
+  if (!description) flags.push("description-missing");
+  if ((page.ocrConfidence || 0) < 70 && page.textSource !== "native") flags.push("low-confidence");
+  return { sourceFile, pageNumber: page.pageNumber, textSource: page.textSource || "ocr",
+    decNo: dec?.value || "", decDate: findDeclarationDate(dec?.line || null, dateLines, page.renderHeight || 1),
+    ...extractExtraFields(lines), value: value.value, description,
+    ocrConfidence: page.ocrConfidence || 0, flags, edited: false };
 }
 
 function findDeclarationNumber(lines, height) {
   const topLimit = height * 0.45, candidates = [];
   lines.forEach((line, i) => {
-    if (line.top > topLimit || isInvoiceLine(line.text) || nearbyInvoiceLabel(lines, i)) return;
+    if (line.top > topLimit || isInvoiceLine(line.text)) return;
+    if (!hasDecLabel(line.text) && nearbyInvoiceLabel(lines, i)) return;
     for (const raw of normalizeDigits(line.text).match(DEC_RE) || []) {
       const value = cleanDecNo(raw); let score = line.top;
       if (hasDecLabel(line.text)) score -= 1200; if (/^[A-Za-z\u0600-\u06ff]+\//.test(value)) score -= 500;
@@ -53,7 +61,8 @@ function findDeclarationNumber(lines, height) {
 function findDeclarationDate(decLine, lines, height) {
   const candidates = [];
   lines.forEach((line, i) => {
-    if (line.top > height * 0.48 || isInvoiceLine(line.text) || nearbyInvoiceLabel(lines, i)) return;
+    if (line.top > height * 0.48 || isInvoiceLine(line.text)) return;
+    if (!hasDateLabel(line.text) && nearbyInvoiceLabel(lines, i)) return;
     for (const raw of normalizeDigits(line.text).match(DATE_RE) || []) {
       let score = decLine ? lineDistance(decLine, line) : line.top;
       if (hasDateLabel(line.text)) score -= 900; if (lines[i-1] && hasDateLabel(lines[i-1].text)) score -= 500;
@@ -68,13 +77,21 @@ function findValue(lines) {
     const labelWord = line.words.find(w => /\bvalue\b/i.test(w.text) || /القيمه|القيمة/.test(arabicClean(w.text)));
     const minX = labelWord ? labelWord.left + labelWord.width * 0.7 : line.left;
     const sameLine = line.words.filter(w => w.left >= minX).sort((a,b)=>a.left-b.left).map(w=>w.text).join(" ");
-    const direct = pickBestMoney(sameLine.replace(/\bvalue\b/i,"")); if (direct) return direct;
+    const direct = pickBestMoney(sameLine.replace(/\bvalue\b/i,"")); if (direct) return { value: direct, flags: [] };
     const cy=(line.top+line.bottom)/2, tolerance=Math.max(30,line.height*1.7);
     const nearby=lines.filter(x=>Math.abs((x.top+x.bottom)/2-cy)<=tolerance).flatMap(x=>x.words);
     const amount=pickBestMoney(nearby.filter(w=>w.left>=minX).sort((a,b)=>a.left-b.left).map(w=>w.text).join(" "));
-    if (amount) return amount;
+    if (amount) return { value: amount, flags: [] };
   }
-  return "";
+  return fallbackValue(lines);
+}
+
+function fallbackValue(lines) {
+  const pool = lines.filter(l => !isInvoiceLine(l.text) && !/\bdec|رقم/i.test(l.text));
+  const money = pool.flatMap(l => normalizeDigits(l.text).match(/\d[\d,]*\.\d{2}\b/g) || []);
+  if (!money.length) return { value: "", flags: [] };
+  const best = money.map(x => x.replace(/,/g, "")).sort((a,b)=>Number(b)-Number(a))[0];
+  return { value: best, flags: ["value-inferred"] };
 }
 
 function findDescription(lines) {
@@ -96,7 +113,7 @@ function pickBestMoney(text) {
   values.sort((a,b)=>Number(b.decimal)-Number(a.decimal)||b.digits-a.digits); return values[0]?.value?.replace(/,(?=\d{2,3}$)/,".")||"";
 }
 
-function makeLines(words) {
+export function makeLines(words) {
   const map=new Map(); for (const w of words) { const key=`${w.block}:${w.paragraph}:${w.line}`; if (!map.has(key)) map.set(key,[]); map.get(key).push(w); }
   return [...map.values()].map(items=>{ const left=Math.min(...items.map(w=>w.left)), top=Math.min(...items.map(w=>w.top));
     const right=Math.max(...items.map(w=>w.left+w.width)), bottom=Math.max(...items.map(w=>w.top+w.height));

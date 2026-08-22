@@ -1,12 +1,29 @@
-import * as pdfjsLib from "https://cdn.jsdelivr.net/npm/pdfjs-dist@6.2.108/build/pdf.mjs";
+const PDF_VERSION = "6.2.108";
+const PDF_HOSTS = [
+  `https://cdn.jsdelivr.net/npm/pdfjs-dist@${PDF_VERSION}/`,
+  `https://unpkg.com/pdfjs-dist@${PDF_VERSION}/`
+];
 
-pdfjsLib.GlobalWorkerOptions.workerSrc =
-  "https://cdn.jsdelivr.net/npm/pdfjs-dist@6.2.108/build/pdf.worker.min.mjs";
+let pdfjsLib = null;
+let baseUrl = "";
+
+export async function ensurePdfEngine() {
+  if (pdfjsLib) return pdfjsLib;
+  const errors = [];
+  for (const host of PDF_HOSTS) {
+    try {
+      const lib = await import(/* @vite-ignore */ `${host}build/pdf.mjs`);
+      lib.GlobalWorkerOptions.workerSrc = `${host}build/pdf.worker.min.mjs`;
+      pdfjsLib = lib; baseUrl = host; return pdfjsLib;
+    } catch (error) { errors.push(`${host}: ${error?.message || error}`); }
+  }
+  throw new Error(`PDF.js could not be loaded. Check the internet connection. ${errors.join(" | ")}`);
+}
 
 export async function loadPdf(file) {
+  const lib = await ensurePdfEngine();
   const data = new Uint8Array(await file.arrayBuffer());
-  const baseUrl = "https://cdn.jsdelivr.net/npm/pdfjs-dist@6.2.108/";
-  const task = pdfjsLib.getDocument({
+  const task = lib.getDocument({
     data,
     cMapUrl: baseUrl + "cmaps/",
     cMapPacked: true,
@@ -14,8 +31,10 @@ export async function loadPdf(file) {
     wasmUrl: baseUrl + "wasm/",
     useWasm: true
   });
-  task.onPassword = (updatePassword) => {
-    const password = window.prompt("This PDF is password protected. Enter the password:") || "";
+  task.onPassword = (updatePassword, reason) => {
+    const retry = reason === 2 ? "The password was incorrect. Try again:" : "This PDF is password protected. Enter the password:";
+    const password = window.prompt(retry);
+    if (password === null) { task.destroy().catch(() => {}); return; }
     updatePassword(password);
   };
   const pdf = await task.promise;
@@ -75,6 +94,8 @@ export async function renderPage(page, requestedDpi, maxPixels = 30000000) {
   return { canvas, effectiveDpi: Math.round(scale * 72) };
 }
 
+export function releaseCanvas(canvas) { if (canvas) { canvas.width = 1; canvas.height = 1; } }
+
 export function canvasToPngBlob(canvas) {
   return new Promise((resolve, reject) => {
     canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error("PNG conversion failed.")), "image/png");
@@ -92,6 +113,4 @@ function clean(value, depth = 0) {
   return out;
 }
 
-function round(value) {
-  return Number.isFinite(value) ? Math.round(value * 1000) / 1000 : 0;
-}
+function round(value) { return Number.isFinite(value) ? Math.round(value * 1000) / 1000 : 0; }

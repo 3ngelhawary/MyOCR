@@ -61,6 +61,7 @@ export function cleanDescription(t) {
   x = stripLeadingHeadingGarbage(x);
   x = x.replace(/\s*,\s*/g, ", ").replace(/\(\s*/g, "( ").replace(/\s*\)/g, " )");
   x = repairClosingParenthesis(x);
+  x = x.replace(/[\s,;:\-]+$/, "").replace(/^[\s,;:\-]+/, "");
   return x.replace(/\s{2,}/g, " ").trim();
 }
 

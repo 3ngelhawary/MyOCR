@@ -1,14 +1,22 @@
-import { arabicClean } from "./declaration-text.js?v=1.0.6";
+import { arabicClean } from "./declaration-text.js?v=1.0.8";
 
 export function getFieldRegions(page) {
   const words = page.ocrWords || [];
   const width = page.renderWidth || 1, height = page.renderHeight || 1;
   const goods = findWord(words, isGoodsWord);
   const value = findWord(words, isValueWord);
+  const dec = findWord(words, isDecWord);
   return {
     description: descriptionRegion(goods, value, width, height),
-    value: valueRegion(value, goods, width, height)
+    value: valueRegion(value, goods, width, height),
+    header: headerRegion(dec, width, height)
   };
+}
+
+function headerRegion(dec, width, height) {
+  if (!dec) return { left: 0, top: 0, width, height: height * 0.34 };
+  const top = Math.max(0, dec.top - Math.max(14, dec.height * 1.6));
+  return { left: 0, top, width, height: Math.min(height - top, Math.max(height * 0.12, dec.height * 6)) };
 }
 
 function descriptionRegion(goods, value, width, height) {
@@ -41,4 +49,9 @@ function isGoodsWord(w) {
 function isValueWord(w) {
   const t = arabicClean(w.text || "");
   return /^value$/i.test(t.replace(/[^A-Za-z]/g, "")) || /القيمه|القيمة/.test(t);
+}
+
+function isDecWord(w) {
+  const t = arabicClean(w.text || "");
+  return /^dec(?:laration)?\.?$/i.test(t.replace(/[^A-Za-z.]/g, "")) || /البيان|التصريح/.test(t);
 }
